@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #fff5fb;
+    color: #1A1040;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+@layer components {
+  /* Bouton principal rose */
+  .btn-primary {
+    @apply bg-rose-400 text-white font-bold px-6 py-3 rounded-2xl transition-all
+           hover:-translate-y-0.5 active:translate-y-0;
+    box-shadow: 4px 4px 0px 0px #1A1040;
+  }
+
+  /* Bouton secondaire jaune */
+  .btn-citron {
+    @apply bg-citron-400 text-[#1A1040] font-bold px-6 py-3 rounded-2xl transition-all
+           hover:-translate-y-0.5 active:translate-y-0;
+    box-shadow: 4px 4px 0px 0px #1A1040;
+  }
+
+  /* Bouton outline */
+  .btn-outline {
+    @apply border-2 border-[#1A1040] text-[#1A1040] font-bold px-6 py-3 rounded-2xl
+           hover:bg-[#1A1040] hover:text-white transition-colors;
+  }
+
+  /* Card avec bordure épaisse */
+  .card-pop {
+    @apply bg-white border-2 border-[#1A1040] rounded-3xl transition-all
+           hover:-translate-y-1;
+    box-shadow: 4px 4px 0px 0px #1A1040;
+  }
+  .card-pop:hover {
+    box-shadow: 6px 6px 0px 0px #1A1040;
+  }
+}
+
+@layer utilities {
+  .text-ink {
+    color: #1A1040;
+  }
+
+  /* Décorations confettis SVG */
+  .confetti-bg {
+    background-image:
+      radial-gradient(circle, #ff3da1 1.5px, transparent 1.5px),
+      radial-gradient(circle, #ffe500 1.5px, transparent 1.5px),
+      radial-gradient(circle, #00d4c8 1.5px, transparent 1.5px),
+      radial-gradient(circle, #b4ff39 1.5px, transparent 1.5px),
+      radial-gradient(circle, #ff6b35 1.5px, transparent 1.5px);
+    background-size: 60px 60px, 80px 80px, 100px 100px, 70px 70px, 90px 90px;
+    background-position: 0 0, 20px 30px, 40px 10px, 10px 50px, 50px 25px;
+  }
+}
