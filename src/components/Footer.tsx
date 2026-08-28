@@ -4,7 +4,7 @@ import { Scissors, Pencil, Upload, RefreshCw, X, Palette, Check } from 'lucide-r
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import HeroTitleEditor, { type HeroStyle, DEFAULT_HERO_STYLE, buildTitleStyle } from './HeroTitleEditor'
-import { type HeroBg, type BgType, DEFAULT_HERO_BG, buildHeroBgStyle } from '../lib/heroBg'
+import { type HeroBg, type BgType, DEFAULT_HERO_BG, buildHeroBgStyle, loadCachedBg, saveCachedBg } from '../lib/heroBg'
 import BgEditor from './BgEditor'
 
 const DEFAULT_FOOTER_TEXT = "Les plants de Jenni ✦"
@@ -31,15 +31,15 @@ export default function Footer() {
   const [uploading,  setUploading]  = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const pageKey = pageKeyFromPath(pathname)
+
   // Fond par page
-  const [footerBg,      setFooterBg]      = useState<HeroBg>(DEFAULT_FOOTER_BG)
-  const [footerBgTab,   setFooterBgTab]   = useState<BgType>('color')
+  const [footerBg,      setFooterBg]      = useState<HeroBg>(() => loadCachedBg(`footer_bg_${pageKey}`, DEFAULT_FOOTER_BG))
+  const [footerBgTab,   setFooterBgTab]   = useState<BgType>(() => loadCachedBg(`footer_bg_${pageKey}`, DEFAULT_FOOTER_BG).type)
   const [showBgEditor,  setShowBgEditor]  = useState(false)
   const [bgUploading,   setBgUploading]   = useState(false)
   const [bgUploadError, setBgUploadError] = useState('')
   const bgFileRef = useRef<HTMLInputElement>(null)
-
-  const pageKey = pageKeyFromPath(pathname)
 
   // Charge le texte/style/icône une seule fois
   useEffect(() => {
@@ -48,8 +48,9 @@ export default function Footer() {
 
   // Recharge le fond à chaque changement de page
   useEffect(() => {
-    setFooterBg(DEFAULT_FOOTER_BG)
-    setFooterBgTab('color')
+    const cached = loadCachedBg(`footer_bg_${pageKey}`, DEFAULT_FOOTER_BG)
+    setFooterBg(cached)
+    setFooterBgTab(cached.type)
     loadPageBg(pageKey)
   }, [pageKey])
 
@@ -68,7 +69,11 @@ export default function Footer() {
   async function loadPageBg(key: string) {
     const { data } = await supabase.from('settings').select('value').eq('key', `footer_bg_${key}`).maybeSingle()
     if (data?.value) {
-      try { setFooterBg(p => ({ ...p, ...JSON.parse(data.value) })) } catch {}
+      try {
+        const v = JSON.parse(data.value)
+        setFooterBg(p => { const m = { ...p, ...v }; saveCachedBg(`footer_bg_${key}`, m); return m })
+        setFooterBgTab(v.type || 'color')
+      } catch {}
     }
   }
 

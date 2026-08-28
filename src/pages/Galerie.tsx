@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Images, ZoomIn, Palette, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { buildHeroBgStyle, type HeroBg, type BgType, DEFAULT_HERO_BG } from '../lib/heroBg'
+import { buildHeroBgStyle, type HeroBg, type BgType, DEFAULT_HERO_BG, loadCachedBg, saveCachedBg } from '../lib/heroBg'
 import BgEditor from '../components/BgEditor'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -47,8 +47,8 @@ export default function Galerie() {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
 
   // Fond du hero
-  const [galerieBg, setGalerieBg]       = useState<HeroBg>({ ...DEFAULT_HERO_BG, color: '#1A1040' })
-  const [galerieBgTab, setGalerieBgTab] = useState<BgType>('color')
+  const [galerieBg, setGalerieBg]       = useState<HeroBg>(() => loadCachedBg('galerie_bg_config', { ...DEFAULT_HERO_BG, color: '#1A1040' }))
+  const [galerieBgTab, setGalerieBgTab] = useState<BgType>(() => loadCachedBg('galerie_bg_config', { ...DEFAULT_HERO_BG, color: '#1A1040' }).type)
   const [showBgEditor, setShowBgEditor] = useState(false)
   const [bgUploading, setBgUploading]   = useState(false)
   const [bgUploadError, setBgUploadError] = useState('')
@@ -66,7 +66,7 @@ export default function Galerie() {
     if (data) {
       try {
         const v = JSON.parse(data.value)
-        setGalerieBg(p => ({ ...p, ...v }))
+        setGalerieBg(p => { const m = { ...p, ...v }; saveCachedBg('galerie_bg_config', m); return m })
         setGalerieBgTab(v.type || 'color')
       } catch {}
     }

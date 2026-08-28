@@ -31,6 +31,63 @@ const PayPalLogo = () => (
   </svg>
 )
 
+// ─── Composant champ texte ──────────────────────────────────────────────────────
+// Défini au niveau module (pas dans Connecteurs) pour garder une identité stable
+// entre les rendus — sinon React démonte/remonte l'input à chaque frappe et le
+// focus saute (il fallait recliquer après chaque lettre).
+function Field({
+  label, value, onChange, type = 'text', placeholder = '', masked = false, isVisible = false, onToggleVisibility,
+}: {
+  label: string; value: string; onChange: (value: string) => void
+  type?: string; placeholder?: string; masked?: boolean; isVisible?: boolean; onToggleVisibility?: () => void
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-black text-[#1A1040] mb-1">{label}</label>
+      <div className="relative">
+        <input
+          type={masked && !isVisible ? 'password' : type}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="w-full border-2 border-[#1A1040] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300 bg-candy pr-10"
+        />
+        {masked && (
+          <button
+            type="button"
+            onClick={onToggleVisibility}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#1A1040]"
+          >
+            {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Bouton Enregistrer ─────────────────────────────────────────────────────────
+function SaveButton({ isSaving, isSaved, onClick }: { isSaving: boolean; isSaved: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={isSaving}
+      className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-sm border-2 transition-all ${
+        isSaved
+          ? 'bg-lime-300 text-[#1A1040] border-lime-400'
+          : 'bg-[#1A1040] text-citron-400 border-[#1A1040] hover:bg-[#2d2060] hover:-translate-y-0.5 disabled:opacity-50'
+      }`}
+      style={{ boxShadow: '3px 3px 0px 0px #ffb5c8' }}
+    >
+      {isSaved
+        ? <><Check className="w-4 h-4" /> Enregistré !</>
+        : isSaving
+        ? '⏳ Enregistrement...'
+        : '💾 Enregistrer'}
+    </button>
+  )
+}
+
 // ─── Composant principal ───────────────────────────────────────────────────────
 export default function Connecteurs() {
   const [settings, setSettings] = useState<SettingsMap>({})
@@ -208,62 +265,6 @@ export default function Connecteurs() {
   const emailProvider  = (settings['email_provider']  || 'smtp') as EmailProvider
   const paymentProvider = (settings['payment_provider'] || 'stripe') as PaymentProvider
 
-  // ── Composant champ texte ────────────────────────────────────────────────────
-  function Field({
-    label, settingKey, type = 'text', placeholder = '', masked = false,
-  }: {
-    label: string; settingKey: string; type?: string; placeholder?: string; masked?: boolean
-  }) {
-    const isVisible = showPasswords[settingKey]
-    return (
-      <div>
-        <label className="block text-xs font-black text-[#1A1040] mb-1">{label}</label>
-        <div className="relative">
-          <input
-            type={masked && !isVisible ? 'password' : type}
-            value={settings[settingKey] || ''}
-            onChange={e => set(settingKey, e.target.value)}
-            placeholder={placeholder}
-            className="w-full border-2 border-[#1A1040] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300 bg-candy pr-10"
-          />
-          {masked && (
-            <button
-              type="button"
-              onClick={() => toggleShow(settingKey)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#1A1040]"
-            >
-              {isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  // ── Bouton Enregistrer ───────────────────────────────────────────────────────
-  function SaveButton({ section, keys }: { section: string; keys: string[] }) {
-    const isSaving = saving === section
-    const isSaved  = saved === section
-    return (
-      <button
-        onClick={() => saveSection(section, keys)}
-        disabled={!!saving}
-        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-sm border-2 transition-all ${
-          isSaved
-            ? 'bg-lime-300 text-[#1A1040] border-lime-400'
-            : 'bg-[#1A1040] text-citron-400 border-[#1A1040] hover:bg-[#2d2060] hover:-translate-y-0.5 disabled:opacity-50'
-        }`}
-        style={{ boxShadow: '3px 3px 0px 0px #ffb5c8' }}
-      >
-        {isSaved
-          ? <><Check className="w-4 h-4" /> Enregistré !</>
-          : isSaving
-          ? '⏳ Enregistrement...'
-          : '💾 Enregistrer'}
-      </button>
-    )
-  }
-
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-candy">
@@ -335,8 +336,8 @@ export default function Connecteurs() {
 
             {/* Infos expéditeur */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="📧 Email expéditeur" settingKey="email_expediteur" type="email" placeholder="contact@monateliercreatif.fr" />
-              <Field label="✍️ Nom affiché" settingKey="email_nom" placeholder="Les plants de Jenni" />
+              <Field label="📧 Email expéditeur" type="email" placeholder="contact@monateliercreatif.fr" value={settings['email_expediteur'] || ''} onChange={v => set('email_expediteur', v)} />
+              <Field label="✍️ Nom affiché" placeholder="Les plants de Jenni" value={settings['email_nom'] || ''} onChange={v => set('email_nom', v)} />
             </div>
 
             {/* Choix du fournisseur */}
@@ -369,11 +370,11 @@ export default function Connecteurs() {
               <div className="bg-candy rounded-2xl p-4 border-2 border-dashed border-gray-300 space-y-3">
                 <p className="text-xs font-black text-gray-500 uppercase tracking-wide">⚙️ Configuration SMTP</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Serveur (host)" settingKey="smtp_host" placeholder="smtp.example.com" />
-                  <Field label="Port" settingKey="smtp_port" placeholder="587" />
+                  <Field label="Serveur (host)" placeholder="smtp.example.com" value={settings['smtp_host'] || ''} onChange={v => set('smtp_host', v)} />
+                  <Field label="Port" placeholder="587" value={settings['smtp_port'] || ''} onChange={v => set('smtp_port', v)} />
                 </div>
-                <Field label="Identifiant" settingKey="smtp_user" placeholder="votre@email.fr" />
-                <Field label="Mot de passe" settingKey="smtp_password" placeholder="••••••••" masked />
+                <Field label="Identifiant" placeholder="votre@email.fr" value={settings['smtp_user'] || ''} onChange={v => set('smtp_user', v)} />
+                <Field label="Mot de passe" placeholder="••••••••" value={settings['smtp_password'] || ''} onChange={v => set('smtp_password', v)} masked isVisible={showPasswords['smtp_password']} onToggleVisibility={() => toggleShow('smtp_password')} />
               </div>
             )}
 
@@ -381,8 +382,8 @@ export default function Connecteurs() {
             {emailProvider === 'gmail' && (
               <div className="bg-candy rounded-2xl p-4 border-2 border-dashed border-gray-300 space-y-3">
                 <p className="text-xs font-black text-gray-500 uppercase tracking-wide">⚙️ Configuration Gmail</p>
-                <Field label="Adresse Gmail" settingKey="smtp_user" type="email" placeholder="votre.adresse@gmail.com" />
-                <Field label="Mot de passe d'application Google" settingKey="smtp_password" placeholder="xxxx xxxx xxxx xxxx" masked />
+                <Field label="Adresse Gmail" type="email" placeholder="votre.adresse@gmail.com" value={settings['smtp_user'] || ''} onChange={v => set('smtp_user', v)} />
+                <Field label="Mot de passe d'application Google" placeholder="xxxx xxxx xxxx xxxx" value={settings['smtp_password'] || ''} onChange={v => set('smtp_password', v)} masked isVisible={showPasswords['smtp_password']} onToggleVisibility={() => toggleShow('smtp_password')} />
                 <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-turquoise-600 font-bold hover:underline">
                   🔗 Créer un mot de passe d'application Google →
@@ -394,7 +395,7 @@ export default function Connecteurs() {
             {emailProvider === 'resend' && (
               <div className="bg-candy rounded-2xl p-4 border-2 border-dashed border-gray-300 space-y-3">
                 <p className="text-xs font-black text-gray-500 uppercase tracking-wide">⚙️ Configuration Resend</p>
-                <Field label="Clé API Resend" settingKey="smtp_password" placeholder="re_xxxxxxxxxxxxxxxxxxxx" masked />
+                <Field label="Clé API Resend" placeholder="re_xxxxxxxxxxxxxxxxxxxx" value={settings['smtp_password'] || ''} onChange={v => set('smtp_password', v)} masked isVisible={showPasswords['smtp_password']} onToggleVisibility={() => toggleShow('smtp_password')} />
                 <a href="https://resend.com/api-keys" target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-turquoise-600 font-bold hover:underline">
                   🔗 Obtenir votre clé API Resend →
@@ -403,7 +404,7 @@ export default function Connecteurs() {
             )}
 
             <div className="flex justify-end">
-              <SaveButton section="email" keys={['email_expediteur', 'email_nom', 'email_provider', 'smtp_host', 'smtp_port', 'smtp_user', 'smtp_password']} />
+              <SaveButton isSaving={saving === 'email'} isSaved={saved === 'email'} onClick={() => saveSection('email', ['email_expediteur', 'email_nom', 'email_provider', 'smtp_host', 'smtp_port', 'smtp_user', 'smtp_password'])} />
             </div>
           </div>
         </div>
@@ -471,8 +472,8 @@ export default function Connecteurs() {
             {paymentProvider === 'stripe' && (
               <div className="bg-candy rounded-2xl p-4 border-2 border-dashed border-gray-300 space-y-3">
                 <p className="text-xs font-black text-gray-500 uppercase tracking-wide">⚙️ Clés API Stripe</p>
-                <Field label="Clé publique (pk_live_ ou pk_test_)" settingKey="stripe_public_key" placeholder="pk_live_..." />
-                <Field label="Clé secrète (sk_live_ ou sk_test_)" settingKey="stripe_secret_key" placeholder="sk_live_..." masked />
+                <Field label="Clé publique (pk_live_ ou pk_test_)" placeholder="pk_live_..." value={settings['stripe_public_key'] || ''} onChange={v => set('stripe_public_key', v)} />
+                <Field label="Clé secrète (sk_live_ ou sk_test_)" placeholder="sk_live_..." value={settings['stripe_secret_key'] || ''} onChange={v => set('stripe_secret_key', v)} masked isVisible={showPasswords['stripe_secret_key']} onToggleVisibility={() => toggleShow('stripe_secret_key')} />
                 <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-turquoise-600 font-bold hover:underline">
                   🔗 Récupérer mes clés sur Stripe Dashboard →
@@ -484,7 +485,7 @@ export default function Connecteurs() {
             {paymentProvider === 'sumup' && (
               <div className="bg-candy rounded-2xl p-4 border-2 border-dashed border-gray-300 space-y-3">
                 <p className="text-xs font-black text-gray-500 uppercase tracking-wide">⚙️ Configuration SumUp</p>
-                <Field label="Clé API SumUp" settingKey="sumup_api_key" placeholder="sup_sk_..." masked />
+                <Field label="Clé API SumUp" placeholder="sup_sk_..." value={settings['sumup_api_key'] || ''} onChange={v => set('sumup_api_key', v)} masked isVisible={showPasswords['sumup_api_key']} onToggleVisibility={() => toggleShow('sumup_api_key')} />
                 <a href="https://developer.sumup.com/docs/authorization" target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-turquoise-600 font-bold hover:underline">
                   🔗 Obtenir ma clé API SumUp →
@@ -496,8 +497,8 @@ export default function Connecteurs() {
             {paymentProvider === 'paypal' && (
               <div className="bg-candy rounded-2xl p-4 border-2 border-dashed border-gray-300 space-y-3">
                 <p className="text-xs font-black text-gray-500 uppercase tracking-wide">⚙️ Configuration PayPal</p>
-                <Field label="Client ID PayPal" settingKey="paypal_client_id" placeholder="AaBbCcDd..." />
-                <Field label="Secret PayPal" settingKey="paypal_secret" placeholder="EeFfGgHh..." masked />
+                <Field label="Client ID PayPal" placeholder="AaBbCcDd..." value={settings['paypal_client_id'] || ''} onChange={v => set('paypal_client_id', v)} />
+                <Field label="Secret PayPal" placeholder="EeFfGgHh..." value={settings['paypal_secret'] || ''} onChange={v => set('paypal_secret', v)} masked isVisible={showPasswords['paypal_secret']} onToggleVisibility={() => toggleShow('paypal_secret')} />
                 <a href="https://developer.paypal.com/dashboard/applications" target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-turquoise-600 font-bold hover:underline">
                   🔗 Créer une application PayPal Developer →
@@ -514,7 +515,7 @@ export default function Connecteurs() {
             </div>
 
             <div className="flex justify-end">
-              <SaveButton section="payment" keys={['payment_provider', 'stripe_public_key', 'stripe_secret_key', 'sumup_api_key', 'paypal_client_id', 'paypal_secret']} />
+              <SaveButton isSaving={saving === 'payment'} isSaved={saved === 'payment'} onClick={() => saveSection('payment', ['payment_provider', 'stripe_public_key', 'stripe_secret_key', 'sumup_api_key', 'paypal_client_id', 'paypal_secret'])} />
             </div>
           </div>
         </div>
@@ -683,7 +684,7 @@ export default function Connecteurs() {
                   </div>
                 </div>
 
-                <Field label="🔑 Clé API Google Places" settingKey="google_places_api_key" placeholder="AIzaSy..." masked />
+                <Field label="🔑 Clé API Google Places" placeholder="AIzaSy..." value={settings['google_places_api_key'] || ''} onChange={v => set('google_places_api_key', v)} masked isVisible={showPasswords['google_places_api_key']} onToggleVisibility={() => toggleShow('google_places_api_key')} />
 
                 <div>
                   <label className="block text-xs font-black text-[#1A1040] mb-1">📍 Place ID de votre établissement</label>
@@ -742,7 +743,7 @@ export default function Connecteurs() {
                 </div>
 
                 <div className="flex justify-end">
-                  <SaveButton section="google" keys={['google_places_api_key', 'google_place_id']} />
+                  <SaveButton isSaving={saving === 'google'} isSaved={saved === 'google'} onClick={() => saveSection('google', ['google_places_api_key', 'google_place_id'])} />
                 </div>
               </div>
             )}
@@ -827,7 +828,7 @@ export default function Connecteurs() {
             </div>
           </div>
           <div className="flex justify-end pt-2">
-            <SaveButton section="social" keys={['instagram_url','facebook_url','tiktok_url','linkedin_url','pinterest_url']} />
+            <SaveButton isSaving={saving === 'social'} isSaved={saved === 'social'} onClick={() => saveSection('social', ['instagram_url','facebook_url','tiktok_url','linkedin_url','pinterest_url'])} />
           </div>
         </div>
       </div>

@@ -82,9 +82,11 @@ function buildEmailClient(params: {
   heure: string; duree: string; lieu: string; mode_paiement: string
   nb_personnes: number; personnes_sup: { prenom: string; nom: string; age: string }[]
   total: number; catInfo: CatInfo; stripeUrl: string; reference: string
+  nomOrga: string; adminEmail: string; siteUrl: string
 }) {
   const { prenom, nom, atelier_titre, dateFormatted, heure, duree, lieu,
-    mode_paiement, nb_personnes, personnes_sup, total, catInfo, stripeUrl, reference } = params
+    mode_paiement, nb_personnes, personnes_sup, total, catInfo, stripeUrl, reference,
+    nomOrga, adminEmail, siteUrl } = params
 
   const allParticipants = [
     `${prenom} ${nom}`,
@@ -139,15 +141,14 @@ function buildEmailClient(params: {
       </p>
       <p style="margin:0;color:#6b7280;font-size:12px;line-height:1.6;">
         Pour toute question relative à vos données personnelles ou pour exercer vos droits, vous pouvez me contacter à
-        <a href="mailto:univers.creatif.anais@outlook.com" style="color:#ec4899;">univers.creatif.anais@outlook.com</a>.
+        <a href="mailto:${adminEmail}" style="color:#ec4899;">${adminEmail}</a>.
       </p>
     </div>`
 
   const contactBlock = `
     <div style="border-top:2px dashed #fbcfe8;padding-top:16px;margin-top:4px;">
       <p style="color:#6b7280;font-size:13px;margin:0 0 6px;">Si vous avez une question ou si vous ne pouvez finalement pas participer, merci de me prévenir dès que possible :</p>
-      <p style="margin:4px 0;font-size:13px;color:#374151;">📧 <a href="mailto:univers.creatif.anais@outlook.com" style="color:#ec4899;text-decoration:none;">univers.creatif.anais@outlook.com</a></p>
-      <p style="margin:4px 0;font-size:13px;color:#374151;">📞 <a href="tel:+33626711479" style="color:#ec4899;text-decoration:none;">06 26 71 14 79</a></p>
+      <p style="margin:4px 0;font-size:13px;color:#374151;">📧 <a href="mailto:${adminEmail}" style="color:#ec4899;text-decoration:none;">${adminEmail}</a></p>
     </div>`
 
   return `<!DOCTYPE html>
@@ -158,7 +159,7 @@ function buildEmailClient(params: {
   <tr><td align="center">
     <table width="100%" style="max-width:580px;" cellpadding="0" cellspacing="0">
       <tr><td style="background:#1A1040;padding:32px 36px;text-align:center;border-radius:20px 20px 0 0;border:3px solid #1A1040;">
-        <p style="color:#ffe500;font-size:26px;font-weight:900;margin:0;">✨ Les plants de Jenni</p>
+        <p style="color:#ffe500;font-size:26px;font-weight:900;margin:0;">✨ ${nomOrga}</p>
         <p style="color:rgba(255,255,255,0.55);font-size:14px;margin:8px 0 0;">Confirmation de réservation</p>
       </td></tr>
       <tr><td style="background:#ffffff;padding:32px 36px;border-left:3px solid #1A1040;border-right:3px solid #1A1040;">
@@ -217,10 +218,8 @@ function buildEmailClient(params: {
       <tr><td style="background:#fdf2f8;padding:24px 36px;text-align:center;border-radius:0 0 20px 20px;border:3px solid #1A1040;border-top:2px solid #fbcfe8;">
         <p style="color:#1A1040;font-size:15px;margin:0 0 6px;">J'ai hâte de vous accueillir et de partager ce moment créatif avec vous.</p>
         <p style="color:#ec4899;font-weight:900;font-size:16px;margin:0 0 12px;">À très bientôt ! 🌸</p>
-        <p style="color:#374151;font-size:13px;font-weight:700;margin:0 0 2px;">Anaïs</p>
-        <p style="color:#374151;font-size:13px;margin:0 0 2px;">Les plants de Jenni</p>
-        <p style="color:#6b7280;font-size:12px;margin:0 0 2px;">06 26 71 14 79</p>
-        <p style="color:#d1d5db;font-size:12px;margin:0;"><a href="https://luniverscreatifdanais.fr" style="color:#ec4899;text-decoration:none;">luniverscreatifdanais.fr</a></p>
+        <p style="color:#374151;font-size:13px;font-weight:700;margin:0 0 2px;">${nomOrga}</p>
+        <p style="color:#d1d5db;font-size:12px;margin:0;"><a href="${siteUrl}" style="color:#ec4899;text-decoration:none;">${siteUrl.replace(/^https?:\/\//, '')}</a></p>
       </td></tr>
     </table>
   </td></tr>
@@ -298,7 +297,7 @@ serve(async (req) => {
     const { data: rows } = await supabase
       .from('settings')
       .select('key, value')
-      .in('key', ['email_provider', 'email_expediteur', 'email_nom', 'smtp_password', 'stripe_secret_key'])
+      .in('key', ['email_provider', 'email_expediteur', 'email_nom', 'smtp_password', 'stripe_secret_key', 'site_url'])
 
     const s: Record<string, string> = {}
     ;(rows ?? []).forEach((r: { key: string; value: string }) => { s[r.key] = r.value || '' })
@@ -345,7 +344,8 @@ serve(async (req) => {
     })
 
     // ── Créer un lien Stripe Checkout pour le paiement en ligne (mode virement)
-    let stripeUrl = 'https://luniverscreatifdanais.fr/ateliers'
+    const siteUrl = s['site_url'] || 'https://les-bons-plants-de-jen.netlify.app'
+    let stripeUrl = `${siteUrl}/ateliers`
     if (mode_paiement === 'virement' && stripeSecret) {
       try {
         const params = new URLSearchParams({
@@ -356,8 +356,8 @@ serve(async (req) => {
           'line_items[0][price_data][unit_amount]': String(Math.round(total * 100)),
           'line_items[0][price_data][product_data][name]': atelier_titre,
           'line_items[0][price_data][product_data][description]': `${dateFormatted} — ${atelier_heure} — ${atelier_lieu}`,
-          success_url: 'https://luniverscreatifdanais.fr/ateliers?paiement=confirme',
-          cancel_url: 'https://luniverscreatifdanais.fr/ateliers',
+          success_url: `${siteUrl}/ateliers?paiement=confirme`,
+          cancel_url: `${siteUrl}/ateliers`,
         })
         const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
           method: 'POST',
@@ -383,6 +383,7 @@ serve(async (req) => {
       heure: atelier_heure, duree: atelier_duree, lieu: atelier_lieu,
       mode_paiement, nb_personnes, personnes_sup: personnes_sup ?? [],
       total, catInfo, stripeUrl, reference,
+      nomOrga, adminEmail, siteUrl,
     })
 
     const htmlAdmin = buildEmailAdmin({
@@ -395,7 +396,7 @@ serve(async (req) => {
     // Envoyer les deux emails
     async function sendEmail(to: string, subject: string, html: string, replyTo?: string) {
       const body: Record<string, unknown> = {
-        from: `${nomOrga} <reservation@luniverscreatifdanais.fr>`,
+        from: `${nomOrga} <onboarding@resend.dev>`,
         to: [to], subject, html,
       }
       if (replyTo) body['reply_to'] = replyTo

@@ -3,7 +3,7 @@ import { Pencil, Check, X, MapPin, Phone, Mail, Image as ImageIcon, Palette } fr
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import HeroTitleEditor, { type HeroStyle, buildTitleStyle } from '../components/HeroTitleEditor'
-import { type HeroBg, type BgType, DEFAULT_HERO_BG, buildHeroBgStyle } from '../lib/heroBg'
+import { type HeroBg, type BgType, DEFAULT_HERO_BG, buildHeroBgStyle, loadCachedBg, saveCachedBg } from '../lib/heroBg'
 import BgEditor from '../components/BgEditor'
 import HeroPolaroidDisplay from '../components/HeroPolaroidDisplay'
 import HeroPolaroidManager, { type HeroPolaroid } from '../components/HeroPolaroidManager'
@@ -38,7 +38,7 @@ const EMPTY_FORM: FormData = { nom: '', email: '', message: '' }
 export default function Contact() {
   const { isAdmin } = useAuth()
   const [content, setContent]     = useState<Record<string, string>>(DEFAULT_CONTENT)
-  const [contactBg, setContactBg] = useState<HeroBg>(DEFAULT_CONTACT_BG)
+  const [contactBg, setContactBg] = useState<HeroBg>(() => loadCachedBg('contact_bg_config', DEFAULT_CONTACT_BG))
   const [titreStyle, setTitreStyle] = useState<HeroStyle>(DEFAULT_TITRE_STYLE)
   const [infosStyle, setInfosStyle] = useState<HeroStyle>(DEFAULT_INFOS_STYLE)
   const [badge, setBadge]         = useState<BadgeConfig>(DEFAULT_BADGE)
@@ -103,7 +103,7 @@ export default function Contact() {
       .in('key', ['contact_bg_config', 'contact_titre_style', 'contact_badge_config', 'contact_infos_style'])
     if (!data) return
     data.forEach((s: { key: string; value: string }) => {
-      if (s.key === 'contact_bg_config')    { try { setContactBg(p => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
+      if (s.key === 'contact_bg_config')    { try { setContactBg(p => { const m = { ...p, ...JSON.parse(s.value) }; saveCachedBg('contact_bg_config', m); return m }) } catch {} }
       if (s.key === 'contact_titre_style')  { try { setTitreStyle(p => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
       if (s.key === 'contact_badge_config') { try { setBadge(p => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
       if (s.key === 'contact_infos_style')  { try { setInfosStyle(p => ({ ...p, ...JSON.parse(s.value) })) } catch {} }

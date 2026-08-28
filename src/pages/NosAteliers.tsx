@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Plus, Pencil, Trash2, Calendar, Clock, MapPin, Users, ChevronLeft, Upload, X, Image as ImageIcon, Palette } from 'lucide-react'
-import { buildHeroBgStyle, type HeroBg, type BgType, DEFAULT_HERO_BG } from '../lib/heroBg'
+import { buildHeroBgStyle, type HeroBg, type BgType, DEFAULT_HERO_BG, loadCachedBg, saveCachedBg } from '../lib/heroBg'
 import BgEditor from '../components/BgEditor'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -219,8 +219,8 @@ export default function NosAteliers() {
   const [showDescEditor, setShowDescEditor] = useState(false)
 
   // Fond du hero
-  const [ateliersBg, setAteliersBg] = useState<HeroBg>({ ...DEFAULT_HERO_BG, color: '#1A1040' })
-  const [ateliersBgTab, setAteliersBgTab] = useState<BgType>('color')
+  const [ateliersBg, setAteliersBg] = useState<HeroBg>(() => loadCachedBg('ateliers_bg_config', { ...DEFAULT_HERO_BG, color: '#1A1040' }))
+  const [ateliersBgTab, setAteliersBgTab] = useState<BgType>(() => loadCachedBg('ateliers_bg_config', { ...DEFAULT_HERO_BG, color: '#1A1040' }).type)
   const [showBgEditor, setShowBgEditor] = useState(false)
   const [bgUploading, setBgUploading] = useState(false)
   const [bgUploadError, setBgUploadError] = useState('')
@@ -272,7 +272,7 @@ export default function NosAteliers() {
         if (s.key === 'ateliers_desc_style')       setDescStyle(p => ({ ...p, ...JSON.parse(s.value) }))
         if (s.key === 'ateliers_bg_config') {
           const v = JSON.parse(s.value)
-          setAteliersBg(p => ({ ...p, ...v }))
+          setAteliersBg(p => { const m = { ...p, ...v }; saveCachedBg('ateliers_bg_config', m); return m })
           setAteliersBgTab(v.type || 'color')
         }
       } catch {}

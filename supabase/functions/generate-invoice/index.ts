@@ -249,7 +249,7 @@ serve(async (req) => {
     ;(settingsRows || []).forEach((r: { key: string; value: string }) => { settings[r.key] = r.value })
 
     const resendKey = settings['smtp_password']
-    const adminEmail = settings['email_expediteur'] || 'univers.creatif.anais@outlook.com'
+    const adminEmail = settings['email_expediteur']
 
     // ── Générer le numéro de document ──────────────────────────────────────
     const { data: numData } = await supabase.rpc('next_document_numero', { p_type: type })
@@ -300,7 +300,7 @@ serve(async (req) => {
     })
 
     // ── Envoyer par email à l'administratrice ─────────────────────────────
-    if (resendKey) {
+    if (resendKey && adminEmail) {
       const subjectPrefix = type === 'avoir' ? 'Avoir' : 'Facture'
       const subject = `${subjectPrefix} ${numero} ${client_nom} ${client_prenom}`
 
@@ -311,7 +311,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from:    'reservation@luniverscreatifdanais.fr',
+          from:    'onboarding@resend.dev',
           to:      [adminEmail],
           subject,
           html:    htmlBody,

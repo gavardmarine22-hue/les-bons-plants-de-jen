@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Scissors, LogIn } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import { type HeroBg, DEFAULT_HERO_BG, buildHeroBgStyle } from '../lib/heroBg'
+import { type HeroBg, DEFAULT_HERO_BG, buildHeroBgStyle, loadCachedBg, saveCachedBg } from '../lib/heroBg'
 import { type HeroStyle, buildTitleStyle } from '../components/HeroTitleEditor'
 
 interface BadgeConfig { text: string; bg: string; textColor: string; radius: string; font: string; fontSize: number }
@@ -26,7 +26,7 @@ export default function Connexion() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const [bg, setBg] = useState<HeroBg>(DEFAULT_BG)
+  const [bg, setBg] = useState<HeroBg>(() => loadCachedBg('connexion_bg_config', DEFAULT_BG))
   const [badge, setBadge] = useState<BadgeConfig>(DEFAULT_BADGE)
   const [style, setStyle] = useState<StyleConfig>(DEFAULT_STYLE)
   const [titreText, setTitreText] = useState('Espace Admin')
@@ -41,7 +41,7 @@ export default function Connexion() {
     ]).then(({ data }) => {
       (data || []).forEach((s: { key: string; value: string }) => {
         try {
-          if (s.key === 'connexion_bg_config')    setBg(p => ({ ...p, ...JSON.parse(s.value) }))
+          if (s.key === 'connexion_bg_config')    setBg(p => { const m = { ...p, ...JSON.parse(s.value) }; saveCachedBg('connexion_bg_config', m); return m })
           if (s.key === 'connexion_badge_config') setBadge(p => ({ ...p, ...JSON.parse(s.value) }))
           if (s.key === 'connexion_style_config') setStyle(p => ({ ...p, ...JSON.parse(s.value) }))
           if (s.key === 'connexion_titre_style')  setTitreStyle(p => ({ ...p, ...JSON.parse(s.value) }))

@@ -70,9 +70,11 @@ function buildEmailRappel(params: {
   heure: string; duree: string; lieu: string; mode_paiement: string; statut_paiement: string
   nb_personnes: number; personnes_sup: { prenom: string; nom: string; age: string }[]
   total: number; catInfo: CatInfo; reference: string; jours: 7 | 1
+  nomOrga: string; adminEmail: string
 }) {
   const { prenom, nom, atelier_titre, dateFormatted, heure, duree, lieu,
-    mode_paiement, statut_paiement, nb_personnes, personnes_sup, total, catInfo, reference, jours } = params
+    mode_paiement, statut_paiement, nb_personnes, personnes_sup, total, catInfo, reference, jours,
+    nomOrga, adminEmail } = params
 
   const bannerBg    = jours === 7 ? '#f97316' : '#ec4899'
   const bannerText  = jours === 7 ? '📅 Rappel — Dans 7 jours !' : '⏰ Rappel — C\'est demain !'
@@ -109,15 +111,14 @@ function buildEmailRappel(params: {
       </p>
       <p style="margin:0;color:#6b7280;font-size:12px;line-height:1.6;">
         Pour toute question relative à vos données personnelles ou pour exercer vos droits, vous pouvez me contacter à
-        <a href="mailto:univers.creatif.anais@outlook.com" style="color:#ec4899;">univers.creatif.anais@outlook.com</a>.
+        <a href="mailto:${adminEmail}" style="color:#ec4899;">${adminEmail}</a>.
       </p>
     </div>`
 
   const contactBlock = `
     <div style="border-top:2px dashed #fbcfe8;padding-top:16px;margin-top:4px;">
       <p style="color:#6b7280;font-size:13px;margin:0 0 6px;">Si vous avez une question ou si vous ne pouvez finalement pas participer, merci de me prévenir dès que possible :</p>
-      <p style="margin:4px 0;font-size:13px;color:#374151;">📧 <a href="mailto:univers.creatif.anais@outlook.com" style="color:#ec4899;text-decoration:none;">univers.creatif.anais@outlook.com</a></p>
-      <p style="margin:4px 0;font-size:13px;color:#374151;">📞 <a href="tel:+33626711479" style="color:#ec4899;text-decoration:none;">06 26 71 14 79</a></p>
+      <p style="margin:4px 0;font-size:13px;color:#374151;">📧 <a href="mailto:${adminEmail}" style="color:#ec4899;text-decoration:none;">${adminEmail}</a></p>
     </div>`
 
   return `<!DOCTYPE html>
@@ -128,7 +129,7 @@ function buildEmailRappel(params: {
   <tr><td align="center">
     <table width="100%" style="max-width:580px;" cellpadding="0" cellspacing="0">
       <tr><td style="background:#1A1040;padding:32px 36px;text-align:center;border-radius:20px 20px 0 0;border:3px solid #1A1040;">
-        <p style="color:#ffe500;font-size:26px;font-weight:900;margin:0;">✨ Les plants de Jenni</p>
+        <p style="color:#ffe500;font-size:26px;font-weight:900;margin:0;">✨ ${nomOrga}</p>
         <p style="color:rgba(255,255,255,0.55);font-size:14px;margin:8px 0 0;">Rappel de réservation</p>
       </td></tr>
       <!-- Bannière rappel -->
@@ -192,10 +193,7 @@ function buildEmailRappel(params: {
       <tr><td style="background:#fdf2f8;padding:24px 36px;text-align:center;border-radius:0 0 20px 20px;border:3px solid #1A1040;border-top:2px solid #fbcfe8;">
         <p style="color:#1A1040;font-size:15px;margin:0 0 6px;">J'ai hâte de vous accueillir et de partager ce moment créatif avec vous.</p>
         <p style="color:#ec4899;font-weight:900;font-size:16px;margin:0 0 12px;">À très bientôt ! 🌸</p>
-        <p style="color:#374151;font-size:13px;font-weight:700;margin:0 0 2px;">Anaïs</p>
-        <p style="color:#374151;font-size:13px;margin:0 0 2px;">Les plants de Jenni</p>
-        <p style="color:#6b7280;font-size:12px;margin:0 0 2px;">06 26 71 14 79</p>
-        <p style="color:#d1d5db;font-size:12px;margin:0;"><a href="https://luniverscreatifdanais.fr" style="color:#ec4899;text-decoration:none;">luniverscreatifdanais.fr</a></p>
+        <p style="color:#374151;font-size:13px;font-weight:700;margin:0 0 2px;">${nomOrga}</p>
       </td></tr>
     </table>
   </td></tr>
@@ -220,8 +218,9 @@ serve(async (req) => {
     const s: Record<string, string> = {}
     ;(rows ?? []).forEach((r: { key: string; value: string }) => { s[r.key] = r.value || '' })
 
-    const apiKey   = s['smtp_password']
-    const nomOrga  = s['email_nom'] || "Les plants de Jenni"
+    const apiKey     = s['smtp_password']
+    const nomOrga    = s['email_nom'] || "Les plants de Jenni"
+    const adminEmail = s['email_expediteur']
 
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'Resend non configuré' }), {
@@ -244,7 +243,7 @@ serve(async (req) => {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: `${nomOrga} <reservation@luniverscreatifdanais.fr>`, to: [to], subject, html }),
+        body: JSON.stringify({ from: `${nomOrga} <onboarding@resend.dev>`, to: [to], subject, html }),
       })
       if (!res.ok) throw new Error(await res.text())
     }
@@ -294,7 +293,7 @@ serve(async (req) => {
               dateFormatted, heure: atelier.heure, duree: atelier.duree, lieu: atelier.lieu,
               mode_paiement: r.mode_paiement, statut_paiement: r.statut_paiement,
               nb_personnes: r.nb_personnes, personnes_sup: r.personnes_sup ?? [],
-              total, catInfo, reference, jours,
+              total, catInfo, reference, jours, nomOrga, adminEmail,
             })
 
             const subjectEmoji = jours === 7 ? '📅' : '⏰'

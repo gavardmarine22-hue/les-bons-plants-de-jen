@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ShoppingCart, X, Plus, Minus, Tag, Clock, ChevronRight, ChevronDown, Trash2, AlertCircle, SlidersHorizontal, Pencil, Palette, Check, ZoomIn } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { buildHeroBgStyle, type HeroBg, type BgType, DEFAULT_HERO_BG } from '../lib/heroBg'
+import { buildHeroBgStyle, type HeroBg, type BgType, DEFAULT_HERO_BG, loadCachedBg, saveCachedBg } from '../lib/heroBg'
 import BgEditor from '../components/BgEditor'
 import { buildTitleStyle, type HeroStyle } from '../components/HeroTitleEditor'
 import { useCart } from '../context/CartContext'
@@ -485,8 +485,8 @@ export default function Boutique() {
   const [stockingText, setStockingText] = useState('La boutique sera bientôt disponible 🚀')
   const [stockingDate, setStockingDate] = useState('')
   const [stockingImg,  setStockingImg]  = useState('')
-  const [heroBg, setHeroBg]             = useState<HeroBg>(DEFAULT_BG)
-  const [heroBgTab, setHeroBgTab]       = useState(DEFAULT_BG.type)
+  const [heroBg, setHeroBg]             = useState<HeroBg>(() => loadCachedBg('shop_bg_config', DEFAULT_BG))
+  const [heroBgTab, setHeroBgTab]       = useState(() => loadCachedBg('shop_bg_config', DEFAULT_BG).type)
   const [titreText, setTitreText]       = useState('Notre boutique 🛍️')
   const [boutiquePolaroids, setBoutiquePolaroids] = useState<HeroPolaroid[]>([])
   const [showPolaroidManager, setShowPolaroidManager] = useState(false)
@@ -564,7 +564,7 @@ export default function Boutique() {
         if (s.key === 'shop_stocking_text')  setStockingText(s.value)
         if (s.key === 'shop_stocking_date')  setStockingDate(s.value)
         if (s.key === 'shop_stocking_image') setStockingImg(s.value)
-        if (s.key === 'shop_bg_config')      { const v=JSON.parse(s.value); setHeroBg(p=>({...p,...v})); setHeroBgTab(v.type||'color') }
+        if (s.key === 'shop_bg_config')      { const v=JSON.parse(s.value); setHeroBg(p=>{ const m={...p,...v}; saveCachedBg('shop_bg_config', m); return m }); setHeroBgTab(v.type||'color') }
         if (s.key === 'shop_badge_config')   setBadge(p=>({...p,...JSON.parse(s.value)}))
         if (s.key === 'shop_titre_style')    setTitreStyle(p=>({...p,...JSON.parse(s.value)}))
       } catch {}

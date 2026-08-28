@@ -251,7 +251,7 @@ serve(async (req) => {
 
     async function sendEmail(to: string, subject: string, html: string, replyTo?: string) {
       const body: Record<string, unknown> = {
-        from: `${nomOrga} <reservation@luniverscreatifdanais.fr>`,
+        from: `${nomOrga} <onboarding@resend.dev>`,
         to: [to], subject, html,
       }
       if (replyTo) body['reply_to'] = replyTo

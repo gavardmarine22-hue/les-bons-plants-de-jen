@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useSiteSettings } from '../context/SiteSettingsContext'
 import { supabase } from '../lib/supabase'
 import HeroTitleEditor, { type HeroStyle, DEFAULT_HERO_STYLE, buildTitleStyle } from '../components/HeroTitleEditor'
-import { type HeroBg, DEFAULT_HERO_BG, buildHeroBgStyle } from '../lib/heroBg'
+import { type HeroBg, DEFAULT_HERO_BG, buildHeroBgStyle, loadCachedBg, saveCachedBg } from '../lib/heroBg'
 import HeroPolaroidManager, { type HeroPolaroid } from '../components/HeroPolaroidManager'
 import AproposPhotoManager from '../components/AproposPhotoManager'
 import AproposPhotoDisplay, { type AproposPhoto } from '../components/AproposPhotoDisplay'
@@ -222,9 +222,9 @@ export default function Accueil() {
   const [socialLinks, setSocialLinks] = useState<Record<string, string>>({})
   const [heroStyle, setHeroStyle]           = useState<HeroStyle>(DEFAULT_HERO_STYLE)
   const [showTitleEditor, setShowTitleEditor] = useState(false)
-  const [heroBg,  setHeroBg]  = useState<HeroBg>(DEFAULT_HERO_BG)
+  const [heroBg,  setHeroBg]  = useState<HeroBg>(() => loadCachedBg('hero_bg_config', DEFAULT_HERO_BG))
   // ── Section Actu ──
-  const [actuBg,          setActuBg]          = useState<HeroBg>({ ...DEFAULT_HERO_BG, color: '#ffffff' })
+  const [actuBg,          setActuBg]          = useState<HeroBg>(() => loadCachedBg('actu_bg_config', { ...DEFAULT_HERO_BG, color: '#ffffff' }))
   const [actuTitleStyle,  setActuTitleStyle]   = useState<HeroStyle>(DEFAULT_ACTU_TITLE_STYLE)
   const [,               setActuBadge]        = useState<BadgeConfig>({ text: '🗞️ Actu du moment', bg: '#ffe500', textColor: '#1A1040', radius: 'rounded-full' })
   const [actuBtn,         setActuBtn]          = useState<BtnConfig>({ bg: '#1A1040', text: '#ffe500', label: '✏️ Modifier', radius: 'rounded-lg', bold: true, fontSize: 10 })
@@ -237,7 +237,7 @@ export default function Accueil() {
   const [navContactVisible,  setNavContactVisible]  = useState(true)
 
   // Section Valeurs
-  const [valeursBg,            setValeursBg]            = useState<HeroBg>({ ...DEFAULT_HERO_BG, color: '#fff5fb' })
+  const [valeursBg,            setValeursBg]            = useState<HeroBg>(() => loadCachedBg('valeurs_bg_config', { ...DEFAULT_HERO_BG, color: '#fff5fb' }))
   const [valeursTitleStyle,    setValeursTitleStyle]    = useState<HeroStyle>(DEFAULT_VALEURS_TITLE_STYLE)
   const [valeursCardTitleStyle,setValeursCardTitleStyle]= useState<HeroStyle>(DEFAULT_CARD_TITLE_STYLE)
   const [valeursCardDescStyle, setValeursCardDescStyle] = useState<HeroStyle>(DEFAULT_CARD_DESC_STYLE)
@@ -245,7 +245,7 @@ export default function Accueil() {
   const [showValeursTitleEditor, setShowValeursTitleEditor] = useState(false)
 
   // Section À Propos
-  const [aproposBg,            setAproposBg]            = useState<HeroBg>({ ...DEFAULT_HERO_BG, color: '#ffffff' })
+  const [aproposBg,            setAproposBg]            = useState<HeroBg>(() => loadCachedBg('apropos_bg_config', { ...DEFAULT_HERO_BG, color: '#ffffff' }))
   const [aproposPhotos,        setAproposPhotos]        = useState<AproposPhoto[]>([])
   const [aproposCarouselIdx,   setAproposCarouselIdx]   = useState(0)
   const [valeursCarouselIdx,   setValeursCarouselIdx]   = useState(0)
@@ -257,7 +257,7 @@ export default function Accueil() {
   const [showAproposBodyEditor,  setShowAproposBodyEditor]  = useState(false)
 
   // Section Avis clients
-  const [avisBg,            setAvisBg]            = useState<HeroBg>({ ...DEFAULT_HERO_BG, color: '#1A1040' })
+  const [avisBg,            setAvisBg]            = useState<HeroBg>(() => loadCachedBg('avis_bg_config', { ...DEFAULT_HERO_BG, color: '#1A1040' }))
   const [avisTitleStyle,    setAvisTitleStyle]    = useState<HeroStyle>(DEFAULT_AVIS_TITLE_STYLE)
   const [googleReviews,     setGoogleReviews]     = useState<GoogleReview[]>([])
   const [reviewsLoading,    setReviewsLoading]    = useState(false)
@@ -474,22 +474,22 @@ async function loadContent() {
       else if (s.key === 'actu_card_texte_font')     { setActuTexteFont(s.value) }
       else if (s.key === 'actu_card_texte_size')     { setActuTexteSize(parseInt(s.value) || 13) }
       else if (s.key === 'actu_card_texte_color')    { setActuTexteColor(s.value) }
-      else if (s.key === 'hero_bg_config')           { try { setHeroBg(p         => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
-      else if (s.key === 'actu_bg_config')           { try { setActuBg(p         => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
+      else if (s.key === 'hero_bg_config')           { try { setHeroBg(p         => { const m = { ...p, ...JSON.parse(s.value) }; saveCachedBg('hero_bg_config', m); return m }) } catch {} }
+      else if (s.key === 'actu_bg_config')           { try { setActuBg(p         => { const m = { ...p, ...JSON.parse(s.value) }; saveCachedBg('actu_bg_config', m); return m }) } catch {} }
       else if (s.key === 'actu_section_titre_style') { try { setActuTitleStyle(p  => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
       else if (s.key === 'actu_badge_config')        { try { setActuBadge(p       => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
       else if (s.key === 'actu_btn_config')          { try { setActuBtn(p         => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
       else if (s.key === 'hero_btn1_config')         { try { setHeroBtn1(p           => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
       else if (s.key === 'hero_btn2_config')         { try { setHeroBtn2(p           => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
-      else if (s.key === 'valeurs_bg_config')          { try { setValeursBg(p              => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
+      else if (s.key === 'valeurs_bg_config')          { try { setValeursBg(p              => { const m = { ...p, ...JSON.parse(s.value) }; saveCachedBg('valeurs_bg_config', m); return m }) } catch {} }
       else if (s.key === 'valeurs_titre_style')        { try { setValeursTitleStyle(p      => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
       else if (s.key === 'valeurs_carte_titre_style')  { try { setValeursCardTitleStyle(p  => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
       else if (s.key === 'valeurs_carte_desc_style')   { try { setValeursCardDescStyle(p   => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
       else if (s.key === 'valeurs_cards')              { try { setValeursCards(JSON.parse(s.value)) } catch {} }
-      else if (s.key === 'apropos_bg_config')          { try { setAproposBg(p              => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
+      else if (s.key === 'apropos_bg_config')          { try { setAproposBg(p              => { const m = { ...p, ...JSON.parse(s.value) }; saveCachedBg('apropos_bg_config', m); return m }) } catch {} }
       else if (s.key === 'apropos_titre_style')      { try { setAproposTitleStyle(p  => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
       else if (s.key === 'apropos_texte_style')      { try { setAproposBodyStyle(p   => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
-      else if (s.key === 'avis_bg_config')           { try { setAvisBg(p          => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
+      else if (s.key === 'avis_bg_config')           { try { setAvisBg(p          => { const m = { ...p, ...JSON.parse(s.value) }; saveCachedBg('avis_bg_config', m); return m }) } catch {} }
       else if (s.key === 'avis_titre_style')         { try { setAvisTitleStyle(p  => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
       else if (s.key === 'reseaux_badge_config')     { try { setReseauxBadge(p      => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
       else if (s.key === 'reseaux_titre_style')      { try { setReseauxTitleStyle(p => ({ ...p, ...JSON.parse(s.value) })) } catch {} }

@@ -42,6 +42,23 @@ export const DEFAULT_HERO_BG: HeroBg = {
   videoOverlay:  'rgba(0,0,0,0.25)',
 }
 
+// ─── Cache local (évite le flash de la couleur par défaut au chargement) ──────
+// On mémorise la dernière config connue dans localStorage : au montage d'une
+// page, on part de cette valeur au lieu du défaut codé en dur, en attendant
+// la réponse Supabase. Si rien n'est en cache (1ère visite), le défaut reste
+// affiché brièvement — c'est inévitable sans rendu serveur.
+export function loadCachedBg(cacheKey: string, fallback: HeroBg): HeroBg {
+  try {
+    const raw = localStorage.getItem(`bgcache_${cacheKey}`)
+    if (raw) return { ...fallback, ...JSON.parse(raw) }
+  } catch { /* localStorage indisponible ou JSON invalide */ }
+  return fallback
+}
+
+export function saveCachedBg(cacheKey: string, bg: HeroBg) {
+  try { localStorage.setItem(`bgcache_${cacheKey}`, JSON.stringify(bg)) } catch { /* ignore */ }
+}
+
 // ─── Overlays vidéo prédéfinis ────────────────────────────────────────────────
 export const VIDEO_OVERLAYS = [
   { label: 'Aucun',       value: 'transparent' },
