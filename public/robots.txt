@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+Disallow: /connexion
+Disallow: /connecteurs
+Disallow: /tableau-de-bord
+Disallow: /archives
+Disallow: /actu-moment
+Disallow: /accueil-admin
+Disallow: /contact-admin
+Disallow: /navbar-admin
+Disallow: /boutique-admin
+Disallow: /produits-admin
+Disallow: /promos-admin
+Disallow: /galerie-admin
+Disallow: /commandes-admin
+Disallow: /connexion-admin
+
+Sitemap: https://lesbonsplantsdejen.fr/sitemap.xml

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import HeroTitleEditor, { type HeroStyle, buildTitleStyle } from '../components/HeroTitleEditor'
 import { type HeroBg, type BgType, DEFAULT_HERO_BG, buildHeroBgStyle, loadCachedBg, saveCachedBg } from '../lib/heroBg'
+import { useSEO } from '../lib/seo'
 import BgEditor from '../components/BgEditor'
 import HeroPolaroidDisplay from '../components/HeroPolaroidDisplay'
 import HeroPolaroidManager, { type HeroPolaroid } from '../components/HeroPolaroidManager'
@@ -36,6 +37,10 @@ interface FormData { nom: string; email: string; message: string }
 const EMPTY_FORM: FormData = { nom: '', email: '', message: '' }
 
 export default function Contact() {
+  useSEO(
+    'Contact — Les bons plants de Jen',
+    'Contactez Les bons plants de Jen à Prinquiau (Loire-Atlantique) : questions, commandes ou demandes professionnelles.'
+  )
   const { isAdmin } = useAuth()
   const [content, setContent]     = useState<Record<string, string>>(DEFAULT_CONTENT)
   const [contactBg, setContactBg] = useState<HeroBg>(() => loadCachedBg('contact_bg_config', DEFAULT_CONTACT_BG))

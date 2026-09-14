@@ -6,6 +6,7 @@ import { useSiteSettings } from '../context/SiteSettingsContext'
 import { supabase } from '../lib/supabase'
 import HeroTitleEditor, { type HeroStyle, DEFAULT_HERO_STYLE, buildTitleStyle } from '../components/HeroTitleEditor'
 import { type HeroBg, DEFAULT_HERO_BG, buildHeroBgStyle, loadCachedBg, saveCachedBg } from '../lib/heroBg'
+import { useSEO } from '../lib/seo'
 import HeroPolaroidManager, { type HeroPolaroid } from '../components/HeroPolaroidManager'
 import AproposPhotoManager from '../components/AproposPhotoManager'
 import AproposPhotoDisplay, { type AproposPhoto } from '../components/AproposPhotoDisplay'
@@ -200,6 +201,10 @@ function ReviewCard({ review, onClick }: { review: GoogleReview; onClick: () => 
 
 // ─── Page Accueil ──────────────────────────────────────────────────────────
 export default function Accueil() {
+  useSEO(
+    'Les bons plants de Jen — Plants, légumes & fleurs à Prinquiau',
+    'Plants, légumes, fleurs et aromates de qualité, cultivés avec soin à Prinquiau (Loire-Atlantique). Production locale pour particuliers et professionnels.'
+  )
   const { isAdmin } = useAuth()
   const { logoUrl } = useSiteSettings()
   const [logoVisible, setLogoVisible] = useState(true)

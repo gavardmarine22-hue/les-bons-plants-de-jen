@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { ShoppingCart, X, Plus, Minus, Tag, Clock, ChevronRight, ChevronDown, Trash2, AlertCircle, SlidersHorizontal, Pencil, Palette, Check, ZoomIn } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { buildHeroBgStyle, type HeroBg, type BgType, DEFAULT_HERO_BG, loadCachedBg, saveCachedBg } from '../lib/heroBg'
+import { useSEO } from '../lib/seo'
 import BgEditor from '../components/BgEditor'
 import { buildTitleStyle, type HeroStyle } from '../components/HeroTitleEditor'
 import { useCart } from '../context/CartContext'
@@ -475,6 +476,10 @@ function CartPanel({ isOpen, onClose, onCheckout }: { isOpen: boolean; onClose: 
 
 // ─── Page principale ───────────────────────────────────────────────────────────
 export default function Boutique() {
+  useSEO(
+    'Boutique — Les bons plants de Jen',
+    'Achetez en ligne nos plants, légumes, fleurs et aromates de saison. Production locale à Prinquiau, livraison ou retrait.'
+  )
   const { itemCount, addItem } = useCart()
   const [cartPanelOpen, setCartPanelOpen] = useState(false)
   const [showCheckout, setShowCheckout]   = useState(false)

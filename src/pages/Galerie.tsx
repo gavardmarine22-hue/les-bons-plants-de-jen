@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Images, ZoomIn, Palette, X } from 'lucide-re
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { buildHeroBgStyle, type HeroBg, type BgType, DEFAULT_HERO_BG, loadCachedBg, saveCachedBg } from '../lib/heroBg'
+import { useSEO } from '../lib/seo'
 import BgEditor from '../components/BgEditor'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -38,6 +39,10 @@ const FONT_FAMILY: Record<string, string> = {
 
 // ─── Page publique Galerie ────────────────────────────────────────────────────
 export default function Galerie() {
+  useSEO(
+    'Galerie — Les bons plants de Jen',
+    'Découvrez en images nos plants, nos cultures et nos récoltes à Prinquiau (Loire-Atlantique).'
+  )
   const { isAdmin } = useAuth()
   const [categories, setCategories]   = useState<GalerieCategory[]>([])
   const [selectedCat, setSelectedCat] = useState<GalerieCategory | null>(null)

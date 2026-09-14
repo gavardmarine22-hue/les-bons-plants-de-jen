@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Plus, Pencil, Trash2, Calendar, Clock, MapPin, Users, ChevronLeft, Upload, X, Image as ImageIcon, Palette } from 'lucide-react'
 import { buildHeroBgStyle, type HeroBg, type BgType, DEFAULT_HERO_BG, loadCachedBg, saveCachedBg } from '../lib/heroBg'
+import { useSEO } from '../lib/seo'
 import BgEditor from '../components/BgEditor'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -184,6 +185,10 @@ function CategoryModal({ cat, onClose, onSaved }: CatModalProps) {
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function NosAteliers() {
+  useSEO(
+    'Nos ateliers — Les bons plants de Jen',
+    'Découvrez nos ateliers autour du jardinage et des plants à Prinquiau (Loire-Atlantique).'
+  )
   const { isAdmin } = useAuth()
   const [categories,   setCategories]   = useState<AtelierCategory[]>([])
   const [selectedCat,  setSelectedCat]  = useState<AtelierCategory | null>(null)
