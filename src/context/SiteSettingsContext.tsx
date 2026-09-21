@@ -5,18 +5,35 @@ interface SiteSettings {
   logoUrl: string
 }
 
-const DEFAULT: SiteSettings = { logoUrl: '/images/logo.png' }
+const DEFAULT: SiteSettings = { logoUrl: '/images/logo.jpg' }
+const LOGO_CACHE_KEY = 'site_logo_cache'
+
+// Dernier logo connu : évite d'afficher le logo par défaut le temps de la réponse Supabase
+function loadCachedLogo(): SiteSettings {
+  try {
+    const cached = localStorage.getItem(LOGO_CACHE_KEY)
+    if (cached) return { logoUrl: cached }
+  } catch { /* localStorage indisponible */ }
+  return DEFAULT
+}
+
+function saveCachedLogo(url: string) {
+  try { localStorage.setItem(LOGO_CACHE_KEY, url) } catch { /* ignore */ }
+}
 
 const SiteSettingsContext = createContext<SiteSettings>(DEFAULT)
 
 export function SiteSettingsProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<SiteSettings>(DEFAULT)
+  const [settings, setSettings] = useState<SiteSettings>(loadCachedLogo)
 
   useEffect(() => {
     // Chargement initial
     supabase.from('settings').select('key, value').eq('key', 'site_logo_url')
       .then(({ data }) => {
-        if (data?.[0]?.value) setSettings({ logoUrl: data[0].value })
+        if (data?.[0]?.value) {
+          setSettings({ logoUrl: data[0].value })
+          saveCachedLogo(data[0].value)
+        }
       })
 
     // Mise à jour en temps réel
@@ -27,7 +44,10 @@ export function SiteSettingsProvider({ children }: { children: React.ReactNode }
         { event: '*', schema: 'public', table: 'settings', filter: 'key=eq.site_logo_url' },
         payload => {
           const newVal = (payload.new as { value?: string })?.value
-          if (newVal) setSettings({ logoUrl: newVal })
+          if (newVal) {
+            setSettings({ logoUrl: newVal })
+            saveCachedLogo(newVal)
+          }
         }
       )
       .subscribe()

@@ -8,7 +8,7 @@ import type { ShopStatus } from '../lib/shop'
 
 interface BadgeConfig { text: string; bg: string; textColor: string; radius: string }
 
-const DEFAULT_BG: HeroBg      = { ...DEFAULT_HERO_BG, color: '#c4b5fd' }
+const DEFAULT_BG: HeroBg      = { ...DEFAULT_HERO_BG, color: '#b6edca' }
 const DEFAULT_BADGE: BadgeConfig = { text: '🛍️ Notre boutique', bg: '#fb7185', textColor: '#ffffff', radius: 'rounded-full' }
 const DEFAULT_TITRE: HeroStyle = {
   font: 'serif', fontSize: 40, color: '#1A1040', bold: true, italic: false, underline: false,

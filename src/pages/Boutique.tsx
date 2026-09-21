@@ -18,7 +18,7 @@ import HeroPolaroidManager, { type HeroPolaroid } from '../components/HeroPolaro
 import { Image as ImageIcon } from 'lucide-react'
 
 // ─── Défauts ───────────────────────────────────────────────────────────────────
-const DEFAULT_BG: HeroBg = { ...DEFAULT_HERO_BG, color: '#c4b5fd' }
+const DEFAULT_BG: HeroBg = { ...DEFAULT_HERO_BG, color: '#b6edca' }
 const DEFAULT_TITRE: HeroStyle = {
   font: 'serif', fontSize: 40, color: '#1A1040', bold: true, italic: false, underline: false,
   outline: false, outlineColor: '#1A1040', outlineWidth: 2,

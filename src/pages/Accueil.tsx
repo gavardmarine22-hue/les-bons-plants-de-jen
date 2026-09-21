@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { Pencil, Star, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 import HeroTitleEditor, { type HeroStyle, DEFAULT_HERO_STYLE, buildTitleStyle } from '../components/HeroTitleEditor'
 import { type HeroBg, DEFAULT_HERO_BG, buildHeroBgStyle, loadCachedBg, saveCachedBg } from '../lib/heroBg'
 import { useSEO } from '../lib/seo'
+import { HeroFlourish, HeroFeaturesRow, HeroFeaturesEditor, DEFAULT_HERO_FEATURES, type HeroFeaturesConfig } from '../components/HeroExtras'
 import HeroPolaroidManager, { type HeroPolaroid } from '../components/HeroPolaroidManager'
 import AproposPhotoManager from '../components/AproposPhotoManager'
 import AproposPhotoDisplay, { type AproposPhoto } from '../components/AproposPhotoDisplay'
@@ -120,10 +121,27 @@ const DEFAULT_APROPOS_BODY_STYLE: HeroStyle = {
   bold: false, italic: false, underline: false,
 }
 
+// ─── Hero : styles par défaut (titre en 2 lignes + sous-titre) ──────────────
+const DEFAULT_HERO_TITLE_STYLE: HeroStyle = {
+  ...DEFAULT_HERO_STYLE, font: 'serif', fontSize: 64, color: '#1f3d1f', shadow: false, bold: true,
+}
+const DEFAULT_HERO_LINE2_STYLE: HeroStyle = {
+  ...DEFAULT_HERO_STYLE, font: 'brand', fontSize: 84, color: '#5f7a2c', shadow: false, bold: false,
+}
+const DEFAULT_HERO_SUBTITLE_STYLE: HeroStyle = {
+  ...DEFAULT_HERO_STYLE, font: 'sans', fontSize: 22, color: '#3d3a2e', shadow: false, bold: false,
+}
+
+// Réduit la taille sur mobile (plein format dès ~6× la taille en px de large)
+function heroTitleCss(style: HeroStyle): CSSProperties {
+  return { ...buildTitleStyle(style), fontSize: `clamp(28px, ${(style.fontSize / 6).toFixed(2)}vw, ${style.fontSize}px)` }
+}
+
 // ─── Contenu par défaut ─────────────────────────────────────────────────────
 const DEFAULT_CONTENT: Record<string, string> = {
-  hero_titre:         'Crée, explore & éclate-toi !',
-  hero_sous_titre:   'Des ateliers créatifs hauts en couleur pour laisser libre cours à ton imagination. Broderie, peinture, couture... ici, tout est permis (sauf l\'ennui) ! 🎉',
+  hero_titre:         'Les bons plants',
+  hero_titre_ligne2:  'de Jen',
+  hero_sous_titre:   'Des plants, des légumes, des fleurs et des aromates de qualité, cultivés avec passion pour les <strong>particuliers</strong> et les <strong>professionnels</strong>.',
   actu_section_titre: 'Les dernières nouvelles ✦',
   valeurs_titre:      'Pourquoi nous rejoindre ?',
   avis_titre:         'Avis clients ✦',
@@ -225,8 +243,15 @@ export default function Accueil() {
   const [actuTexteColor, setActuTexteColor] = useState('#4b5563')
   const [expandedActu, setExpandedActu] = useState<Actu | null>(null)
   const [socialLinks, setSocialLinks] = useState<Record<string, string>>({})
-  const [heroStyle, setHeroStyle]           = useState<HeroStyle>(DEFAULT_HERO_STYLE)
+  const [heroStyle, setHeroStyle]           = useState<HeroStyle>(DEFAULT_HERO_TITLE_STYLE)
   const [showTitleEditor, setShowTitleEditor] = useState(false)
+  const [heroLine2Style, setHeroLine2Style]   = useState<HeroStyle>(DEFAULT_HERO_LINE2_STYLE)
+  const [showLine2Editor, setShowLine2Editor] = useState(false)
+  const [heroLine2Visible,    setHeroLine2Visible]    = useState(false)
+  const [heroFlourishVisible, setHeroFlourishVisible] = useState(false)
+  const [heroFeatures, setHeroFeatures]       = useState<HeroFeaturesConfig>(DEFAULT_HERO_FEATURES)
+  const [showFeaturesEditor, setShowFeaturesEditor] = useState(false)
+  const [heroAlign, setHeroAlign]             = useState<'left' | 'center'>('left')
   const [heroBg,  setHeroBg]  = useState<HeroBg>(() => loadCachedBg('hero_bg_config', DEFAULT_HERO_BG))
   // ── Section Actu ──
   const [actuBg,          setActuBg]          = useState<HeroBg>(() => loadCachedBg('actu_bg_config', { ...DEFAULT_HERO_BG, color: '#ffffff' }))
@@ -242,7 +267,7 @@ export default function Accueil() {
   const [navContactVisible,  setNavContactVisible]  = useState(true)
 
   // Section Valeurs
-  const [valeursBg,            setValeursBg]            = useState<HeroBg>(() => loadCachedBg('valeurs_bg_config', { ...DEFAULT_HERO_BG, color: '#fff5fb' }))
+  const [valeursBg,            setValeursBg]            = useState<HeroBg>(() => loadCachedBg('valeurs_bg_config', { ...DEFAULT_HERO_BG, color: '#fdc7a5' }))
   const [valeursTitleStyle,    setValeursTitleStyle]    = useState<HeroStyle>(DEFAULT_VALEURS_TITLE_STYLE)
   const [valeursCardTitleStyle,setValeursCardTitleStyle]= useState<HeroStyle>(DEFAULT_CARD_TITLE_STYLE)
   const [valeursCardDescStyle, setValeursCardDescStyle] = useState<HeroStyle>(DEFAULT_CARD_DESC_STYLE)
@@ -281,14 +306,7 @@ export default function Accueil() {
   // Ref pour la vidéo hero (nécessaire pour gérer muted en React)
   const heroVideoRef = useRef<HTMLVideoElement>(null)
 
-  const DEFAULT_HERO_SUB_STYLE: HeroStyle = {
-    ...DEFAULT_HERO_STYLE,
-    fontSize:  18,
-    color:     '#ffe4e6',
-    bold:      false,
-    shadow:    false,
-  }
-  const [heroSubStyle, setHeroSubStyle]         = useState<HeroStyle>(DEFAULT_HERO_SUB_STYLE)
+  const [heroSubStyle, setHeroSubStyle]         = useState<HeroStyle>(DEFAULT_HERO_SUBTITLE_STYLE)
   const [showSubEditor, setShowSubEditor]       = useState(false)
   const [heroTitreVisible,     setHeroTitreVisible]     = useState(true)
   const [heroSousTitreVisible, setHeroSousTitreVisible] = useState(true)
@@ -503,6 +521,11 @@ async function loadContent() {
       else if (s.key === 'hero_logo_offset_y')       { setLogoOffsetY(parseFloat(s.value) || 0) }
       else if (s.key === 'hero_titre_visible')       { try { setHeroTitreVisible(JSON.parse(s.value) !== false) } catch {} }
       else if (s.key === 'hero_sous_titre_visible')  { try { setHeroSousTitreVisible(JSON.parse(s.value) !== false) } catch {} }
+      else if (s.key === 'hero_titre_ligne2_visible') { try { setHeroLine2Visible(JSON.parse(s.value) !== false) } catch {} }
+      else if (s.key === 'hero_titre_ligne2_style')  { try { setHeroLine2Style(p => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
+      else if (s.key === 'hero_flourish_visible')    { try { setHeroFlourishVisible(JSON.parse(s.value) !== false) } catch {} }
+      else if (s.key === 'hero_features')            { try { setHeroFeatures(p => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
+      else if (s.key === 'hero_text_align')          { setHeroAlign(s.value === 'center' ? 'center' : 'left') }
       else if (s.key === 'google_places_api_key')    { if (s.value) setGoogleApiKey(s.value) }
       else if (s.key === 'google_place_id')          { if (s.value) setGooglePlaceId(s.value) }
       else if (s.key === 'google_reviews_mode')      { setReviewsMode((s.value || 'manual') as 'api' | 'manual') }
@@ -584,8 +607,21 @@ async function loadContent() {
 
         {/* Contenu centré verticalement */}
         <div className="relative z-10 flex-1 flex items-center justify-center py-20">
-        <div className="max-w-3xl mx-auto w-full">
-          {/* Logo centré */}
+        <div className={`mx-auto w-full ${heroAlign === 'left' ? 'max-w-5xl text-left' : 'max-w-3xl text-center'}`}>
+          {/* Alignement du bloc texte (admin) */}
+          {isAdmin && (
+            <div className={`flex items-center gap-2 mb-6 ${heroAlign === 'left' ? 'justify-start' : 'justify-center'}`}>
+              <span className="text-[10px] font-black uppercase tracking-wide text-gray-500">Alignement du texte :</span>
+              {(['left', 'center'] as const).map(a => (
+                <button key={a}
+                  onClick={async () => { setHeroAlign(a); await supabase.from('settings').upsert({ key: 'hero_text_align', value: a }, { onConflict: 'key' }) }}
+                  className={`px-3 py-1 rounded-full text-xs font-black border-2 transition-all ${heroAlign === a ? 'bg-[#1A1040] text-citron-400 border-[#1A1040]' : 'bg-white/90 text-[#1A1040] border-[#1A1040] hover:bg-white'}`}>
+                  {a === 'left' ? 'Gauche' : 'Centré'}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Logo */}
           {(logoVisible || isAdmin) && (
             <div className="mb-8 flex flex-col items-center">
               <div
@@ -601,7 +637,7 @@ async function loadContent() {
                   style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.15), 6px 6px 0px 0px rgba(26,16,64,0.15)' }}>
                   <img
                     src={logoUrl}
-                    alt="Les plants de Jenni"
+                    alt="Les bons plants de Jen"
                     className="h-44 md:h-56 w-auto pointer-events-none"
                     draggable={false}
                     onError={e => {
@@ -620,12 +656,17 @@ async function loadContent() {
                 </div>
                 {/* Fallback si logo absent */}
                 <div id="logo-fallback" className="hidden flex-col items-center bg-white/20 backdrop-blur-sm rounded-3xl px-8 py-4 border-4 border-white/60">
-                  <p className="font-script text-gray-700 text-2xl">Les plants</p>
-                  <p className="font-brand font-bold text-rose-700 text-5xl">de Jenni</p>
+                  <p className="font-script text-gray-700 text-2xl">Les bons plants</p>
+                  <p className="font-brand font-bold text-rose-700 text-5xl">de Jen</p>
                 </div>
               </div>
               {isAdmin && (
                 <div className="flex items-center gap-2 mt-2">
+                  <button
+                    onClick={async () => { const next = !logoVisible; setLogoVisible(next); await supabase.from('settings').upsert({ key: 'hero_logo_visible', value: JSON.stringify(next) }, { onConflict: 'key' }) }}
+                    className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border-2 transition-all ${logoVisible ? 'bg-lime-300 border-[#1A1040] text-[#1A1040]' : 'bg-gray-300 border-gray-500 text-gray-600'}`}>
+                    {logoVisible ? '👁 Logo visible' : '🙈 Logo masqué'}
+                  </button>
                   <span className="text-[10px] text-gray-400 font-medium">🖱️ Glisse le logo pour le repositionner</span>
                   {(logoOffsetX !== 0 || logoOffsetY !== 0) && (
                     <button onClick={resetLogoPosition}
@@ -642,16 +683,16 @@ async function loadContent() {
             <>
               {heroTitreVisible && (
                 <h1
-                  className="text-4xl md:text-5xl mb-6 leading-tight"
-                  style={buildTitleStyle(heroStyle)}
+                  className={`leading-tight ${heroLine2Visible ? 'mb-1' : 'mb-6'}`}
+                  style={heroTitleCss(heroStyle)}
                   dangerouslySetInnerHTML={{ __html: content['hero_titre'] }}
                 />
               )}
               {isAdmin && (
-                <div className="flex justify-center items-center gap-2 mb-2 -mt-4">
+                <div className={`flex items-center gap-2 mb-4 ${heroAlign === 'left' ? 'justify-start' : 'justify-center'}`}>
                   <button onClick={() => setShowTitleEditor(true)}
                     className="inline-flex items-center gap-1.5 bg-white/90 text-[#1A1040] px-3 py-1 rounded-full text-xs font-black border-2 border-[#1A1040] hover:bg-white transition-all">
-                    <Pencil className="w-3 h-3" /> Modifier le titre
+                    <Pencil className="w-3 h-3" /> Modifier le titre (ligne 1)
                   </button>
                   <button
                     onClick={async () => { const next = !heroTitreVisible; setHeroTitreVisible(next); await supabase.from('settings').upsert({ key: 'hero_titre_visible', value: JSON.stringify(next) }, { onConflict: 'key' }) }}
@@ -663,17 +704,51 @@ async function loadContent() {
             </>
           )}
 
+          {/* Titre — 2e ligne + trait décoratif */}
+          {(heroLine2Visible || isAdmin) && (
+            <>
+              {heroLine2Visible && (
+                <div className={`flex items-center flex-wrap gap-3 mb-6 ${heroAlign === 'left' ? 'justify-start' : 'justify-center'}`}>
+                  <div
+                    className="leading-none"
+                    style={heroTitleCss(heroLine2Style)}
+                    dangerouslySetInnerHTML={{ __html: content['hero_titre_ligne2'] }}
+                  />
+                  {heroFlourishVisible && <HeroFlourish color={heroLine2Style.color} className="w-28 md:w-44 h-auto" />}
+                </div>
+              )}
+              {isAdmin && (
+                <div className={`flex flex-wrap items-center gap-2 mb-4 ${heroAlign === 'left' ? 'justify-start' : 'justify-center'}`}>
+                  <button onClick={() => setShowLine2Editor(true)}
+                    className="inline-flex items-center gap-1.5 bg-white/90 text-[#1A1040] px-3 py-1 rounded-full text-xs font-black border-2 border-[#1A1040] hover:bg-white transition-all">
+                    <Pencil className="w-3 h-3" /> Modifier la 2e ligne
+                  </button>
+                  <button
+                    onClick={async () => { const next = !heroLine2Visible; setHeroLine2Visible(next); await supabase.from('settings').upsert({ key: 'hero_titre_ligne2_visible', value: JSON.stringify(next) }, { onConflict: 'key' }) }}
+                    className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border-2 transition-all ${heroLine2Visible ? 'bg-lime-300 border-[#1A1040] text-[#1A1040]' : 'bg-gray-300 border-gray-500 text-gray-600'}`}>
+                    {heroLine2Visible ? '👁 Visible' : '🙈 Masquée'}
+                  </button>
+                  <button
+                    onClick={async () => { const next = !heroFlourishVisible; setHeroFlourishVisible(next); await supabase.from('settings').upsert({ key: 'hero_flourish_visible', value: JSON.stringify(next) }, { onConflict: 'key' }) }}
+                    className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border-2 transition-all ${heroFlourishVisible ? 'bg-lime-300 border-[#1A1040] text-[#1A1040]' : 'bg-gray-300 border-gray-500 text-gray-600'}`}>
+                    {heroFlourishVisible ? '🌿 Trait visible' : '🌿 Trait masqué'}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
           {(heroSousTitreVisible || isAdmin) && (
             <>
               {heroSousTitreVisible && (
                 <p
-                  className={`max-w-2xl mx-auto leading-relaxed ${isAdmin ? 'mb-2' : 'mb-10'}`}
+                  className={`max-w-2xl leading-relaxed ${heroAlign === 'center' ? 'mx-auto' : ''} ${isAdmin ? 'mb-2' : 'mb-10'}`}
                   style={buildTitleStyle(heroSubStyle)}
                   dangerouslySetInnerHTML={{ __html: content['hero_sous_titre'] }}
                 />
               )}
               {isAdmin && (
-                <div className="flex justify-center items-center gap-2 mb-10">
+                <div className={`flex items-center gap-2 mb-10 ${heroAlign === 'left' ? 'justify-start' : 'justify-center'}`}>
                   <button onClick={() => setShowSubEditor(true)}
                     className="inline-flex items-center gap-1.5 bg-white/90 text-[#1A1040] px-3 py-1 rounded-full text-xs font-black border-2 border-[#1A1040] hover:bg-white transition-all">
                     <Pencil className="w-3 h-3" /> Modifier le sous-titre
@@ -682,6 +757,26 @@ async function loadContent() {
                     onClick={async () => { const next = !heroSousTitreVisible; setHeroSousTitreVisible(next); await supabase.from('settings').upsert({ key: 'hero_sous_titre_visible', value: JSON.stringify(next) }, { onConflict: 'key' }) }}
                     className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border-2 transition-all ${heroSousTitreVisible ? 'bg-lime-300 border-[#1A1040] text-[#1A1040]' : 'bg-gray-300 border-gray-500 text-gray-600'}`}>
                     {heroSousTitreVisible ? '👁 Visible' : '🙈 Masqué'}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Atouts : icône + texte */}
+          {(heroFeatures.visible || isAdmin) && (
+            <>
+              {heroFeatures.visible && <HeroFeaturesRow config={heroFeatures} isAdmin={isAdmin} align={heroAlign} />}
+              {isAdmin && (
+                <div className={`flex items-center gap-2 mt-4 ${heroAlign === 'left' ? 'justify-start' : 'justify-center'}`}>
+                  <button onClick={() => setShowFeaturesEditor(true)}
+                    className="inline-flex items-center gap-1.5 bg-white/90 text-[#1A1040] px-3 py-1 rounded-full text-xs font-black border-2 border-[#1A1040] hover:bg-white transition-all">
+                    <Pencil className="w-3 h-3" /> Modifier les atouts
+                  </button>
+                  <button
+                    onClick={async () => { const next = { ...heroFeatures, visible: !heroFeatures.visible }; setHeroFeatures(next); await supabase.from('settings').upsert({ key: 'hero_features', value: JSON.stringify(next) }, { onConflict: 'key' }) }}
+                    className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border-2 transition-all ${heroFeatures.visible ? 'bg-lime-300 border-[#1A1040] text-[#1A1040]' : 'bg-gray-300 border-gray-500 text-gray-600'}`}>
+                    {heroFeatures.visible ? '👁 Visibles' : '🙈 Masqués'}
                   </button>
                 </div>
               )}
@@ -1390,6 +1485,33 @@ async function loadContent() {
             setShowTitleEditor(false)
           }}
           onClose={() => setShowTitleEditor(false)}
+        />
+      )}
+
+      {/* ===== ÉDITEUR TITRE HERO — 2e LIGNE ===== */}
+      {showLine2Editor && (
+        <HeroTitleEditor
+          initialText={content['hero_titre_ligne2']}
+          initialStyle={heroLine2Style}
+          sectionKey="hero_titre_ligne2"
+          styleKey="hero_titre_ligne2_style"
+          label="✏️ Titre — 2e ligne"
+          onSave={(text, style) => {
+            setContent(prev => ({ ...prev, hero_titre_ligne2: text }))
+            setHeroLine2Style(style)
+            setShowLine2Editor(false)
+          }}
+          onClose={() => setShowLine2Editor(false)}
+        />
+      )}
+
+      {/* ===== ÉDITEUR ATOUTS HERO ===== */}
+      {showFeaturesEditor && (
+        <HeroFeaturesEditor
+          initial={heroFeatures}
+          align={heroAlign}
+          onSave={cfg => { setHeroFeatures(cfg); setShowFeaturesEditor(false) }}
+          onClose={() => setShowFeaturesEditor(false)}
         />
       )}
 

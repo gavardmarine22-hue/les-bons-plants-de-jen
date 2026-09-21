@@ -22,14 +22,14 @@ interface NavSettings {
 
 const DEFAULT_NAV: NavSettings = {
   bgColor:      '#ffffff',
-  borderColor:  '#1A1040',
+  borderColor:  '#000000',
   linkFont:     'sans',
-  activeBg:     '#fb7185',
+  activeBg:     '#597D35',
   activeText:   '#ffffff',
-  inactiveText: '#1A1040',
-  hoverBg:      '#ffe4e6',
-  mobileBg:     '#ffb5c8',
-  labels:       ['🏠 Accueil', '🎨 Nos Ateliers', '✉️ Contact', '🖼️ Galerie', '🛍️ Boutique'],
+  inactiveText: '#000000',
+  hoverBg:      '#e6efd9',
+  mobileBg:     '#f5f5f5',
+  labels:       ['Accueil', 'Nos Ateliers', 'Contact', 'Galerie', 'Boutique'],
 }
 
 const FONT_MAP: Record<string, string> = {
@@ -41,6 +41,22 @@ const FONT_MAP: Record<string, string> = {
 
 const NAV_HREFS = ['/', '/ateliers', '/contact', '/galerie', '/boutique']
 const DEFAULT_TAB_VISIBLE = { ateliers: true, contact: true, galerie: true, boutique: true }
+
+// Dernière config connue : évite d'afficher les valeurs par défaut le temps de la réponse Supabase
+const NAV_CACHE_KEY = 'navbar_cache'
+function loadNavCache(): { nav: NavSettings; tabVisible: typeof DEFAULT_TAB_VISIBLE } {
+  try {
+    const raw = localStorage.getItem(NAV_CACHE_KEY)
+    if (raw) {
+      const c = JSON.parse(raw)
+      return { nav: { ...DEFAULT_NAV, ...c.nav }, tabVisible: { ...DEFAULT_TAB_VISIBLE, ...c.tabVisible } }
+    }
+  } catch { /* cache absent ou invalide */ }
+  return { nav: DEFAULT_NAV, tabVisible: DEFAULT_TAB_VISIBLE }
+}
+function saveNavCache(nav: NavSettings, tabVisible: typeof DEFAULT_TAB_VISIBLE) {
+  try { localStorage.setItem(NAV_CACHE_KEY, JSON.stringify({ nav, tabVisible })) } catch { /* ignore */ }
+}
 const TAB_KEY_BY_HREF: Record<string, keyof typeof DEFAULT_TAB_VISIBLE> = {
   '/ateliers': 'ateliers', '/contact': 'contact', '/galerie': 'galerie', '/boutique': 'boutique',
 }
@@ -54,9 +70,15 @@ export default function Navbar() {
   const { itemCount: atelierCount } = useAtelierCart()
   const itemCount = shopCount + atelierCount
 
-  const [nav, setNav]           = useState<NavSettings>(DEFAULT_NAV)
+  const [initialCache] = useState(loadNavCache)
+  const [nav, setNav]           = useState<NavSettings>(initialCache.nav)
   const [hoveredHref, setHoveredHref] = useState<string | null>(null)
-  const [tabVisible, setTabVisible]   = useState(DEFAULT_TAB_VISIBLE)
+  const [tabVisible, setTabVisible]   = useState(initialCache.tabVisible)
+  // Sans cache (1ère visite), on masque les liens tant que les réglages ne sont pas connus :
+  // sinon tous les onglets s'affichent avec les couleurs par défaut puis certains disparaissent.
+  const [navReady, setNavReady] = useState(() => {
+    try { return !!localStorage.getItem(NAV_CACHE_KEY) } catch { return false }
+  })
 
   // ── Chargement des paramètres ─────────────────────────────────────────────────
   useEffect(() => {
@@ -79,34 +101,38 @@ export default function Navbar() {
       'nav_ateliers_visible', 'nav_contact_visible',
       'nav_galerie_visible', 'nav_boutique_visible',
     ])
-    if (!data) return
+    if (!data) { setNavReady(true); return }
     const map: Record<string, string> = {}
     data.forEach((r: { key: string; value: string }) => { map[r.key] = r.value })
-    setNav(prev => ({
-      ...prev,
-      bgColor:      map['navbar_bg_color']       ?? prev.bgColor,
-      borderColor:  map['navbar_border_color']    ?? prev.borderColor,
-      linkFont:     map['navbar_link_font']        ?? prev.linkFont,
-      activeBg:     map['navbar_active_bg']        ?? prev.activeBg,
-      activeText:   map['navbar_active_text']      ?? prev.activeText,
-      inactiveText: map['navbar_inactive_text']    ?? prev.inactiveText,
-      hoverBg:      map['navbar_hover_bg']         ?? prev.hoverBg,
-      mobileBg:     map['navbar_mobile_bg']        ?? prev.mobileBg,
+    const nextNav: NavSettings = {
+      ...DEFAULT_NAV,
+      bgColor:      map['navbar_bg_color']       ?? DEFAULT_NAV.bgColor,
+      borderColor:  map['navbar_border_color']    ?? DEFAULT_NAV.borderColor,
+      linkFont:     map['navbar_link_font']        ?? DEFAULT_NAV.linkFont,
+      activeBg:     map['navbar_active_bg']        ?? DEFAULT_NAV.activeBg,
+      activeText:   map['navbar_active_text']      ?? DEFAULT_NAV.activeText,
+      inactiveText: map['navbar_inactive_text']    ?? DEFAULT_NAV.inactiveText,
+      hoverBg:      map['navbar_hover_bg']         ?? DEFAULT_NAV.hoverBg,
+      mobileBg:     map['navbar_mobile_bg']        ?? DEFAULT_NAV.mobileBg,
       labels: map['navbar_public_labels']
         ? (() => {
             try {
               const saved = JSON.parse(map['navbar_public_labels']) as string[]
               return DEFAULT_NAV.labels.map((def, i) => saved[i] ?? def)
-            } catch { return prev.labels }
+            } catch { return DEFAULT_NAV.labels }
           })()
-        : prev.labels,
-    }))
-    setTabVisible({
+        : DEFAULT_NAV.labels,
+    }
+    const nextTabs = {
       ateliers: map['nav_ateliers_visible'] !== 'false',
       contact:  map['nav_contact_visible']  !== 'false',
       galerie:  map['nav_galerie_visible']  !== 'false',
       boutique: map['nav_boutique_visible'] !== 'false',
-    })
+    }
+    setNav(nextNav)
+    setTabVisible(nextTabs)
+    saveNavCache(nextNav, nextTabs)
+    setNavReady(true)
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -135,7 +161,7 @@ export default function Navbar() {
           <Link to="/" className="flex items-center gap-2 group shrink-0">
             <img
               src={logoUrl}
-              alt="Les plants de Jenni"
+              alt="Les bons plants de Jen"
               className="h-11 w-auto group-hover:scale-105 transition-transform"
               onError={e => {
                 const t = e.currentTarget
@@ -145,13 +171,13 @@ export default function Navbar() {
               }}
             />
             <span className="font-brand text-xl font-bold text-[#1A1040] hidden" style={{ display: 'none' }}>
-              <span className="text-gray-700">Les plants</span>{' '}
-              <span className="text-rose-500">de Jenni</span>
+              <span className="text-gray-700">Les bons plants</span>{' '}
+              <span style={{ color: '#597D35' }}>de Jen</span>
             </span>
           </Link>
 
           {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-2 flex-wrap">
+          <div className={`hidden md:flex items-center gap-2 flex-wrap transition-opacity duration-200 ${navReady ? 'opacity-100' : 'opacity-0'}`}>
 
             {/* Liens publics dynamiques (Accueil, Nos Ateliers, Contact, Galerie, Boutique) */}
             {navLinks.map((link) => {
@@ -289,7 +315,7 @@ export default function Navbar() {
 
           {/* Mobile burger */}
           <button
-            className="md:hidden w-10 h-10 rounded-xl flex items-center justify-center border-2 border-[#1A1040]"
+            className={`md:hidden w-10 h-10 rounded-xl flex items-center justify-center border-2 border-[#1A1040] transition-opacity duration-200 ${navReady ? 'opacity-100' : 'opacity-0'}`}
             style={{ backgroundColor: nav.activeBg }}
             onClick={() => setMenuOpen(!menuOpen)}
           >
