@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 import HeroTitleEditor, { type HeroStyle, DEFAULT_HERO_STYLE, buildTitleStyle } from '../components/HeroTitleEditor'
 import { type HeroBg, DEFAULT_HERO_BG, buildHeroBgStyle, loadCachedBg, saveCachedBg } from '../lib/heroBg'
 import { useSEO } from '../lib/seo'
+import { useIsMobile } from '../lib/useIsMobile'
 import { HeroFlourish, HeroFeaturesRow, HeroFeaturesEditor, DEFAULT_HERO_FEATURES, type HeroFeaturesConfig } from '../components/HeroExtras'
 import HeroPolaroidManager, { type HeroPolaroid } from '../components/HeroPolaroidManager'
 import AproposPhotoManager from '../components/AproposPhotoManager'
@@ -132,6 +133,16 @@ const DEFAULT_HERO_SUBTITLE_STYLE: HeroStyle = {
   ...DEFAULT_HERO_STYLE, font: 'sans', fontSize: 22, color: '#3d3a2e', shadow: false, bold: false,
 }
 
+const DEFAULT_TITLE_IMG = '/images/hero-title.webp'
+
+// Position (x, y en % de la taille de l'image) et largeur (w) — réglées séparément pour ordinateur et mobile
+interface TitleBox { x: number; y: number; w: number }
+interface TitleLayout { desktop: TitleBox; mobile: TitleBox }
+const DEFAULT_TITLE_LAYOUT: TitleLayout = {
+  desktop: { x: 0, y: 0, w: 80 },
+  mobile:  { x: 0, y: 0, w: 100 },
+}
+
 // Réduit la taille sur mobile (plein format dès ~6× la taille en px de large)
 function heroTitleCss(style: HeroStyle): CSSProperties {
   return { ...buildTitleStyle(style), fontSize: `clamp(28px, ${(style.fontSize / 6).toFixed(2)}vw, ${style.fontSize}px)` }
@@ -251,7 +262,17 @@ export default function Accueil() {
   const [heroFlourishVisible, setHeroFlourishVisible] = useState(false)
   const [heroFeatures, setHeroFeatures]       = useState<HeroFeaturesConfig>(DEFAULT_HERO_FEATURES)
   const [showFeaturesEditor, setShowFeaturesEditor] = useState(false)
-  const [heroAlign, setHeroAlign]             = useState<'left' | 'center'>('left')
+  const [heroAlign, setHeroAlign]             = useState<'left' | 'center'>('center')
+  // Image du titre (posée sur le fond du hero) : URL, visibilité, largeur en %
+  const isMobile = useIsMobile()
+  const [heroTitleImg, setHeroTitleImg]       = useState<{ url: string; visible: boolean; layout: TitleLayout }>({ url: DEFAULT_TITLE_IMG, visible: true, layout: DEFAULT_TITLE_LAYOUT })
+  const [titleDrag, setTitleDrag]             = useState<{ x: number; y: number } | null>(null)
+  const titleDragRef = useRef<{ px: number; py: number; ox: number; oy: number; w: number; h: number; baseL: number; baseT: number; secL: number; secR: number; secT: number; secB: number } | null>(null)
+  const titleBoxRef = useRef<HTMLDivElement>(null)
+  const heroSectionRef = useRef<HTMLElement>(null)
+  const [titleImgLoadedUrl, setTitleImgLoadedUrl] = useState('')
+  const [titleImgUploading, setTitleImgUploading] = useState(false)
+  const titleImgInputRef = useRef<HTMLInputElement>(null)
   const [heroBg,  setHeroBg]  = useState<HeroBg>(() => loadCachedBg('hero_bg_config', DEFAULT_HERO_BG))
   // ── Section Actu ──
   const [actuBg,          setActuBg]          = useState<HeroBg>(() => loadCachedBg('actu_bg_config', { ...DEFAULT_HERO_BG, color: '#ffffff' }))
@@ -437,7 +458,7 @@ export default function Accueil() {
 
   // ── Drag du logo (admin) ────────────────────────────────────────────────
   function onLogoPointerDown(e: React.PointerEvent) {
-    if (!isAdmin) return
+    if (!isAdmin || isMobile) return
     e.preventDefault()
     e.stopPropagation()
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
@@ -526,6 +547,17 @@ async function loadContent() {
       else if (s.key === 'hero_flourish_visible')    { try { setHeroFlourishVisible(JSON.parse(s.value) !== false) } catch {} }
       else if (s.key === 'hero_features')            { try { setHeroFeatures(p => ({ ...p, ...JSON.parse(s.value) })) } catch {} }
       else if (s.key === 'hero_text_align')          { setHeroAlign(s.value === 'center' ? 'center' : 'left') }
+      else if (s.key === 'hero_title_image_url')     { setHeroTitleImg(p => ({ ...p, url: s.value || DEFAULT_TITLE_IMG })) }
+      else if (s.key === 'hero_title_image_visible') { try { setHeroTitleImg(p => ({ ...p, visible: JSON.parse(s.value) !== false })) } catch {} }
+      else if (s.key === 'hero_title_image_layout')  {
+        try {
+          const j = JSON.parse(s.value)
+          setHeroTitleImg(p => ({ ...p, layout: {
+            desktop: { ...DEFAULT_TITLE_LAYOUT.desktop, ...j.desktop },
+            mobile:  { ...DEFAULT_TITLE_LAYOUT.mobile,  ...j.mobile },
+          } }))
+        } catch {}
+      }
       else if (s.key === 'google_places_api_key')    { if (s.value) setGoogleApiKey(s.value) }
       else if (s.key === 'google_place_id')          { if (s.value) setGooglePlaceId(s.value) }
       else if (s.key === 'google_reviews_mode')      { setReviewsMode((s.value || 'manual') as 'api' | 'manual') }
@@ -561,6 +593,65 @@ async function loadContent() {
   }
 
 
+  async function uploadTitleImg(file: File) {
+    setTitleImgUploading(true)
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
+    const filename = `hero-title.${ext}`
+    const { error } = await supabase.storage.from('hero').upload(filename, file, { upsert: true, contentType: file.type })
+    if (error) { alert('Erreur : ' + error.message); setTitleImgUploading(false); return }
+    const { data } = supabase.storage.from('hero').getPublicUrl(filename)
+    const url = data.publicUrl + '?t=' + Date.now()
+    await supabase.from('settings').upsert({ key: 'hero_title_image_url', value: url }, { onConflict: 'key' })
+    setHeroTitleImg(p => ({ ...p, url }))
+    setTitleImgUploading(false)
+  }
+
+  async function saveTitleLayout(layout: TitleLayout) {
+    await supabase.from('settings').upsert({ key: 'hero_title_image_layout', value: JSON.stringify(layout) }, { onConflict: 'key' })
+  }
+
+  // Met à jour la position/taille de l'appareil courant (mobile ou ordinateur)
+  function updateTitleBox(patch: Partial<TitleBox>, save: boolean) {
+    const dev = isMobile ? 'mobile' : 'desktop'
+    const next: TitleLayout = { ...heroTitleImg.layout, [dev]: { ...heroTitleImg.layout[dev], ...patch } }
+    setHeroTitleImg(p => ({ ...p, layout: next }))
+    if (save) saveTitleLayout(next)
+  }
+
+  // ── Drag de l'image du titre (admin) — reste toujours entièrement dans le hero ──
+  function onTitlePointerDown(e: React.PointerEvent) {
+    if (!isAdmin) return
+    const box = titleBoxRef.current, sec = heroSectionRef.current
+    if (!box || !sec) return
+    e.preventDefault()
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* pointeur non capturable */ }
+    const r = box.getBoundingClientRect()
+    const sr = sec.getBoundingClientRect()
+    const cur = heroTitleImg.layout[isMobile ? 'mobile' : 'desktop']
+    titleDragRef.current = {
+      px: e.clientX, py: e.clientY, ox: cur.x, oy: cur.y, w: r.width, h: r.height,
+      baseL: r.left - (cur.x / 100) * r.width, baseT: r.top - (cur.y / 100) * r.height,
+      secL: sr.left, secR: sr.right, secT: sr.top, secB: sr.bottom,
+    }
+    setTitleDrag({ x: cur.x, y: cur.y })
+  }
+  function onTitlePointerMove(e: React.PointerEvent) {
+    const d = titleDragRef.current
+    if (!d) return
+    const clamp = (v: number, min: number, max: number) => (max < min ? (min + max) / 2 : Math.min(Math.max(v, min), max))
+    const x = d.ox + ((e.clientX - d.px) / d.w) * 100
+    const y = d.oy + ((e.clientY - d.py) / d.h) * 100
+    const minX = ((d.secL - d.baseL) / d.w) * 100, maxX = ((d.secR - d.w - d.baseL) / d.w) * 100
+    const minY = ((d.secT - d.baseT) / d.h) * 100, maxY = ((d.secB - d.h - d.baseT) / d.h) * 100
+    setTitleDrag({ x: Math.round(clamp(x, minX, maxX) * 10) / 10, y: Math.round(clamp(y, minY, maxY) * 10) / 10 })
+  }
+  function endTitleDrag() {
+    if (!titleDragRef.current) return
+    titleDragRef.current = null
+    if (titleDrag) updateTitleBox({ x: titleDrag.x, y: titleDrag.y }, true)
+    setTitleDrag(null)
+  }
+
   const hasSocialLinks = Object.values(socialLinks).some(v => v.trim() !== '')
 
   return (
@@ -568,6 +659,7 @@ async function loadContent() {
 
       {/* ===== HERO ===== */}
       <section
+        ref={heroSectionRef}
         className="relative min-h-screen px-4 text-center overflow-hidden border-b-4 border-[#1A1040] flex flex-col"
         style={{
           ...(heroReady ? buildHeroBgStyle(heroBg) : { backgroundColor: '#ffffff' }),
@@ -592,10 +684,12 @@ async function loadContent() {
           </>
         )}
 
-        {/* Polaroïds décoratifs gauche/droite */}
-        {polaroids.map((p, i) => (
-          <HeroPolaroidDisplay key={p.id} polaroid={p} index={i} isAdmin={isAdmin} onMoved={handlePolaroidMoved} />
-        ))}
+        {/* Polaroïds décoratifs gauche/droite — desktop uniquement */}
+        <div className="hidden md:contents">
+          {polaroids.map((p, i) => (
+            <HeroPolaroidDisplay key={p.id} polaroid={p} index={i} isAdmin={isAdmin} onMoved={handlePolaroidMoved} />
+          ))}
+        </div>
 
         {/* Bouton admin — gérer les polaroïds */}
         {isAdmin && (
@@ -607,10 +701,10 @@ async function loadContent() {
 
         {/* Contenu centré verticalement */}
         <div className="relative z-10 flex-1 flex items-center justify-center py-20">
-        <div className={`mx-auto w-full ${heroAlign === 'left' ? 'max-w-5xl text-left' : 'max-w-3xl text-center'}`}>
+        <div className={`mx-auto w-full ${heroAlign === 'left' ? 'max-w-5xl text-center md:text-left' : 'max-w-3xl text-center'}`}>
           {/* Alignement du bloc texte (admin) */}
           {isAdmin && (
-            <div className={`flex items-center gap-2 mb-6 ${heroAlign === 'left' ? 'justify-start' : 'justify-center'}`}>
+            <div className={`flex items-center gap-2 mb-6 ${heroAlign === 'left' ? 'justify-center md:justify-start' : 'justify-center'}`}>
               <span className="text-[10px] font-black uppercase tracking-wide text-gray-500">Alignement du texte :</span>
               {(['left', 'center'] as const).map(a => (
                 <button key={a}
@@ -628,9 +722,9 @@ async function loadContent() {
                 onPointerDown={onLogoPointerDown}
                 onPointerMove={onLogoPointerMove}
                 onPointerUp={onLogoPointerUp}
-                className={`flex justify-center select-none ${isAdmin ? 'cursor-move' : ''} ${!logoVisible ? 'opacity-40' : ''}`}
+                className={`flex justify-center select-none ${isAdmin && !isMobile ? 'cursor-move' : ''} ${!logoVisible ? 'opacity-40' : ''}`}
                 style={{
-                  transform: `translate(${logoDrag ? logoDrag.x : logoOffsetX}px, ${logoDrag ? logoDrag.y : logoOffsetY}px)`,
+                  transform: isMobile ? 'none' : `translate(${logoDrag ? logoDrag.x : logoOffsetX}px, ${logoDrag ? logoDrag.y : logoOffsetY}px)`,
                   transition: logoDrag ? 'none' : 'transform 0.2s ease-out',
                 }}>
                 <div className="bg-white rounded-3xl px-8 py-6 border-4 border-white/80 inline-block relative"
@@ -667,8 +761,10 @@ async function loadContent() {
                     className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border-2 transition-all ${logoVisible ? 'bg-lime-300 border-[#1A1040] text-[#1A1040]' : 'bg-gray-300 border-gray-500 text-gray-600'}`}>
                     {logoVisible ? '👁 Logo visible' : '🙈 Logo masqué'}
                   </button>
-                  <span className="text-[10px] text-gray-400 font-medium">🖱️ Glisse le logo pour le repositionner</span>
-                  {(logoOffsetX !== 0 || logoOffsetY !== 0) && (
+                  {isMobile
+                    ? <span className="text-[10px] text-gray-400 font-medium">📱 Sur mobile, le logo est toujours centré</span>
+                    : <span className="text-[10px] text-gray-400 font-medium">🖱️ Glisse le logo pour le repositionner</span>}
+                  {!isMobile && (logoOffsetX !== 0 || logoOffsetY !== 0) && (
                     <button onClick={resetLogoPosition}
                       className="text-[10px] font-black text-gray-400 hover:text-rose-400 transition-colors underline">
                       Réinitialiser
@@ -678,6 +774,81 @@ async function loadContent() {
               )}
             </div>
           )}
+
+          {/* Image du titre — posée sur le fond ; position et taille réglables à la souris, séparément pour mobile et ordinateur */}
+          {(heroTitleImg.visible || isAdmin) && (() => {
+            const tl = heroTitleImg.layout[isMobile ? 'mobile' : 'desktop']
+            const pos = titleDrag ?? { x: tl.x, y: tl.y }
+            const imgEl = (
+              <img
+                key={heroTitleImg.url}
+                src={heroTitleImg.url}
+                alt="Les bons plants de Jen"
+                width={1400}
+                height={497}
+                decoding="async"
+                draggable={false}
+                onLoad={() => setTitleImgLoadedUrl(heroTitleImg.url)}
+                onError={() => setTitleImgLoadedUrl(heroTitleImg.url)}
+                style={{ filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.85)) drop-shadow(0 0 3px rgba(255,255,255,0.9))' }}
+                className={`w-full h-auto select-none pointer-events-none transition-opacity duration-300 ${titleImgLoadedUrl === heroTitleImg.url ? 'opacity-100' : 'opacity-0'}`}
+              />
+            )
+            return (
+              <div className="mb-6">
+                <div className={`flex justify-center ${heroAlign === 'left' ? 'md:justify-start' : ''}`}>
+                  <div
+                    ref={titleBoxRef}
+                    onPointerDown={onTitlePointerDown}
+                    onPointerMove={onTitlePointerMove}
+                    onPointerUp={endTitleDrag}
+                    onPointerCancel={endTitleDrag}
+                    className={`${isAdmin ? 'cursor-move outline-dashed outline-2 outline-white/70' : ''} ${!heroTitleImg.visible ? 'opacity-40' : ''}`}
+                    style={{
+                      width: isMobile ? `${tl.w}%` : `min(${tl.w * 7.2}px, 92vw)`,
+                      flexShrink: 0,
+                      transform: `translate(${pos.x}%, ${pos.y}%)`,
+                      transition: titleDrag ? 'none' : 'transform 0.2s ease-out',
+                      touchAction: isAdmin ? 'none' : undefined,
+                    }}>
+                    {heroTitreVisible ? <div>{imgEl}</div> : <h1>{imgEl}</h1>}
+                  </div>
+                </div>
+                {isAdmin && (
+                  <div className={`flex flex-wrap items-center gap-2 mt-3 justify-center ${heroAlign === 'left' ? 'md:justify-start' : ''}`}>
+                    <span className="text-[10px] font-black uppercase tracking-wide text-[#1A1040] bg-white/85 px-2 py-0.5 rounded-full">
+                      {isMobile ? '📱 Réglage mobile' : '🖥️ Réglage ordinateur'} · 🖱️ glisse l'image pour la placer
+                    </span>
+                    <button onClick={() => titleImgInputRef.current?.click()} disabled={titleImgUploading}
+                      className="inline-flex items-center gap-1.5 bg-white/90 text-[#1A1040] px-3 py-1 rounded-full text-xs font-black border-2 border-[#1A1040] hover:bg-white transition-all disabled:opacity-60">
+                      <ImageIcon className="w-3 h-3" /> {titleImgUploading ? 'Envoi…' : "Remplacer l'image du titre"}
+                    </button>
+                    <input ref={titleImgInputRef} type="file" accept="image/png,image/webp,image/svg+xml" hidden
+                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadTitleImg(f); e.target.value = '' }} />
+                    <button
+                      onClick={async () => { const next = !heroTitleImg.visible; setHeroTitleImg(p => ({ ...p, visible: next })); await supabase.from('settings').upsert({ key: 'hero_title_image_visible', value: JSON.stringify(next) }, { onConflict: 'key' }) }}
+                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border-2 transition-all ${heroTitleImg.visible ? 'bg-lime-300 border-[#1A1040] text-[#1A1040]' : 'bg-gray-300 border-gray-500 text-gray-600'}`}>
+                      {heroTitleImg.visible ? '👁 Visible' : '🙈 Masquée'}
+                    </button>
+                    <label className="inline-flex items-center gap-2 bg-white/90 px-3 py-1 rounded-full text-xs font-black text-[#1A1040] border-2 border-[#1A1040]">
+                      Taille
+                      <input type="range" min={30} max={isMobile ? 100 : 130} value={tl.w} className="w-24"
+                        onChange={e => updateTitleBox({ w: Number(e.target.value) }, false)}
+                        onPointerUp={() => saveTitleLayout(heroTitleImg.layout)}
+                        onKeyUp={() => saveTitleLayout(heroTitleImg.layout)} />
+                      {tl.w}%
+                    </label>
+                    {(tl.x !== 0 || tl.y !== 0) && (
+                      <button onClick={() => updateTitleBox({ x: 0, y: 0 }, true)}
+                        className="text-[10px] font-black text-[#1A1040] bg-white/90 px-2 py-0.5 rounded-full border-2 border-[#1A1040] hover:bg-white transition-colors">
+                        Recentrer
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {(heroTitreVisible || isAdmin) && (
             <>
@@ -689,7 +860,7 @@ async function loadContent() {
                 />
               )}
               {isAdmin && (
-                <div className={`flex items-center gap-2 mb-4 ${heroAlign === 'left' ? 'justify-start' : 'justify-center'}`}>
+                <div className={`flex items-center gap-2 mb-4 ${heroAlign === 'left' ? 'justify-center md:justify-start' : 'justify-center'}`}>
                   <button onClick={() => setShowTitleEditor(true)}
                     className="inline-flex items-center gap-1.5 bg-white/90 text-[#1A1040] px-3 py-1 rounded-full text-xs font-black border-2 border-[#1A1040] hover:bg-white transition-all">
                     <Pencil className="w-3 h-3" /> Modifier le titre (ligne 1)
@@ -708,7 +879,7 @@ async function loadContent() {
           {(heroLine2Visible || isAdmin) && (
             <>
               {heroLine2Visible && (
-                <div className={`flex items-center flex-wrap gap-3 mb-6 ${heroAlign === 'left' ? 'justify-start' : 'justify-center'}`}>
+                <div className={`flex items-center flex-wrap gap-3 mb-6 ${heroAlign === 'left' ? 'justify-center md:justify-start' : 'justify-center'}`}>
                   <div
                     className="leading-none"
                     style={heroTitleCss(heroLine2Style)}
@@ -718,7 +889,7 @@ async function loadContent() {
                 </div>
               )}
               {isAdmin && (
-                <div className={`flex flex-wrap items-center gap-2 mb-4 ${heroAlign === 'left' ? 'justify-start' : 'justify-center'}`}>
+                <div className={`flex flex-wrap items-center gap-2 mb-4 ${heroAlign === 'left' ? 'justify-center md:justify-start' : 'justify-center'}`}>
                   <button onClick={() => setShowLine2Editor(true)}
                     className="inline-flex items-center gap-1.5 bg-white/90 text-[#1A1040] px-3 py-1 rounded-full text-xs font-black border-2 border-[#1A1040] hover:bg-white transition-all">
                     <Pencil className="w-3 h-3" /> Modifier la 2e ligne
@@ -742,13 +913,13 @@ async function loadContent() {
             <>
               {heroSousTitreVisible && (
                 <p
-                  className={`max-w-2xl leading-relaxed ${heroAlign === 'center' ? 'mx-auto' : ''} ${isAdmin ? 'mb-2' : 'mb-10'}`}
+                  className={`max-w-2xl leading-relaxed ${heroAlign === 'center' ? 'mx-auto' : 'mx-auto md:mx-0'} ${isAdmin ? 'mb-2' : 'mb-10'}`}
                   style={buildTitleStyle(heroSubStyle)}
                   dangerouslySetInnerHTML={{ __html: content['hero_sous_titre'] }}
                 />
               )}
               {isAdmin && (
-                <div className={`flex items-center gap-2 mb-10 ${heroAlign === 'left' ? 'justify-start' : 'justify-center'}`}>
+                <div className={`flex items-center gap-2 mb-10 ${heroAlign === 'left' ? 'justify-center md:justify-start' : 'justify-center'}`}>
                   <button onClick={() => setShowSubEditor(true)}
                     className="inline-flex items-center gap-1.5 bg-white/90 text-[#1A1040] px-3 py-1 rounded-full text-xs font-black border-2 border-[#1A1040] hover:bg-white transition-all">
                     <Pencil className="w-3 h-3" /> Modifier le sous-titre
@@ -768,7 +939,7 @@ async function loadContent() {
             <>
               {heroFeatures.visible && <HeroFeaturesRow config={heroFeatures} isAdmin={isAdmin} align={heroAlign} />}
               {isAdmin && (
-                <div className={`flex items-center gap-2 mt-4 ${heroAlign === 'left' ? 'justify-start' : 'justify-center'}`}>
+                <div className={`flex items-center gap-2 mt-4 ${heroAlign === 'left' ? 'justify-center md:justify-start' : 'justify-center'}`}>
                   <button onClick={() => setShowFeaturesEditor(true)}
                     className="inline-flex items-center gap-1.5 bg-white/90 text-[#1A1040] px-3 py-1 rounded-full text-xs font-black border-2 border-[#1A1040] hover:bg-white transition-all">
                     <Pencil className="w-3 h-3" /> Modifier les atouts

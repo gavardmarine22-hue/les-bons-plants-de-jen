@@ -85,7 +85,7 @@ export function HeroFeaturesRow({ config, isAdmin, align }: {
   const items = config.items.filter(i => i.visible || isAdmin)
   if (!items.length) return null
   return (
-    <div className={`flex flex-wrap gap-6 md:gap-10 ${align === 'center' ? 'justify-center' : 'justify-start'}`}>
+    <div className={`flex flex-wrap gap-6 md:gap-10 ${align === 'center' ? 'justify-center' : 'justify-center md:justify-start'}`}>
       {items.map((it, i) => {
         const Icon = FEATURE_ICONS[it.icon]?.Icon ?? Leaf
         return (
