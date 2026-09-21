@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type CSSProperties } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { Pencil, Star, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -270,6 +270,12 @@ export default function Accueil() {
   const titleDragRef = useRef<{ px: number; py: number; ox: number; oy: number; w: number; h: number; baseL: number; baseT: number; secL: number; secR: number; secT: number; secB: number } | null>(null)
   const titleBoxRef = useRef<HTMLDivElement>(null)
   const heroSectionRef = useRef<HTMLElement>(null)
+  // Position réellement affichée : la position enregistrée, ramenée dans le hero si l'écran est plus petit
+  const [titleFit, setTitleFit] = useState<{ x: number; y: number } | null>(null)
+  const [titleFitReady, setTitleFitReady] = useState(false)
+  const [logoFit, setLogoFit] = useState<{ x: number; y: number } | null>(null)
+  const logoOuterRef = useRef<HTMLDivElement>(null)
+  const logoCardRef = useRef<HTMLDivElement>(null)
   const [titleImgLoadedUrl, setTitleImgLoadedUrl] = useState('')
   const [titleImgUploading, setTitleImgUploading] = useState(false)
   const titleImgInputRef = useRef<HTMLInputElement>(null)
@@ -462,8 +468,9 @@ export default function Accueil() {
     e.preventDefault()
     e.stopPropagation()
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-    logoDragStart.current = { px: e.clientX, py: e.clientY, ox: logoOffsetX, oy: logoOffsetY }
-    setLogoDrag({ x: logoOffsetX, y: logoOffsetY })
+    const cur = logoFit ?? { x: logoOffsetX, y: logoOffsetY }
+    logoDragStart.current = { px: e.clientX, py: e.clientY, ox: cur.x, oy: cur.y }
+    setLogoDrag({ x: cur.x, y: cur.y })
   }
   function onLogoPointerMove(e: React.PointerEvent) {
     if (!logoDragStart.current) return
@@ -593,6 +600,57 @@ async function loadContent() {
   }
 
 
+  // Garde l'image du titre entièrement visible : une position réglée sur grand écran
+  // ne doit jamais faire sortir le texte de l'écran d'une tablette ou d'un mobile.
+  useLayoutEffect(() => {
+    const sec = heroSectionRef.current
+    const box = titleBoxRef.current
+    if (!sec || !box) return
+    const saved = heroTitleImg.layout[isMobile ? 'mobile' : 'desktop']
+    const clamp = (v: number, min: number, max: number) => (max < min ? (min + max) / 2 : Math.min(Math.max(v, min), max))
+    const fit = () => {
+      const sr = sec.getBoundingClientRect()
+      const r = box.getBoundingClientRect() // ancre non décalée = position de base
+      if (!r.width || !r.height) return
+      const tx = clamp((saved.x / 100) * r.width,  sr.left - r.left, sr.right  - r.width  - r.left)
+      const ty = clamp((saved.y / 100) * r.height, sr.top  - r.top,  sr.bottom - r.height - r.top)
+      const nx = Math.round((tx / r.width) * 1000) / 10
+      const ny = Math.round((ty / r.height) * 1000) / 10
+      setTitleFit(prev => (prev && Math.abs(prev.x - nx) < 0.05 && Math.abs(prev.y - ny) < 0.05 ? prev : { x: nx, y: ny }))
+    }
+    fit()
+    const raf = requestAnimationFrame(() => setTitleFitReady(true))
+    const ro = new ResizeObserver(fit)
+    ro.observe(sec)
+    ro.observe(box)
+    return () => { cancelAnimationFrame(raf); ro.disconnect() }
+  }, [heroTitleImg.layout, heroTitleImg.visible, isMobile, heroAlign])
+
+  // Même garde-fou pour le carré du logo : un décalage réglé sur grand écran ne doit pas le faire déborder sur tablette.
+  useLayoutEffect(() => {
+    const sec = heroSectionRef.current
+    const outer = logoOuterRef.current
+    const card = logoCardRef.current
+    if (!sec || !outer || !card || isMobile) { setLogoFit(null); return }
+    const clamp = (v: number, min: number, max: number) => (max < min ? (min + max) / 2 : Math.min(Math.max(v, min), max))
+    const fit = () => {
+      const sr = sec.getBoundingClientRect()
+      const o = outer.getBoundingClientRect() // ancre non décalée
+      const cw = card.offsetWidth, ch = card.offsetHeight
+      if (!cw || !ch) return
+      const baseL = o.left + (o.width - cw) / 2
+      const baseT = o.top
+      const nx = Math.round(clamp(logoOffsetX, sr.left - baseL, sr.right - cw - baseL))
+      const ny = Math.round(clamp(logoOffsetY, sr.top - baseT, sr.bottom - ch - baseT))
+      setLogoFit(prev => (prev && prev.x === nx && prev.y === ny ? prev : { x: nx, y: ny }))
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(sec)
+    ro.observe(card)
+    return () => ro.disconnect()
+  }, [logoOffsetX, logoOffsetY, isMobile, logoVisible, isAdmin])
+
   async function uploadTitleImg(file: File) {
     setTitleImgUploading(true)
     const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
@@ -627,10 +685,11 @@ async function loadContent() {
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* pointeur non capturable */ }
     const r = box.getBoundingClientRect()
     const sr = sec.getBoundingClientRect()
-    const cur = heroTitleImg.layout[isMobile ? 'mobile' : 'desktop']
+    const saved = heroTitleImg.layout[isMobile ? 'mobile' : 'desktop']
+    const cur = titleFit ?? { x: saved.x, y: saved.y }
     titleDragRef.current = {
       px: e.clientX, py: e.clientY, ox: cur.x, oy: cur.y, w: r.width, h: r.height,
-      baseL: r.left - (cur.x / 100) * r.width, baseT: r.top - (cur.y / 100) * r.height,
+      baseL: r.left, baseT: r.top,
       secL: sr.left, secR: sr.right, secT: sr.top, secB: sr.bottom,
     }
     setTitleDrag({ x: cur.x, y: cur.y })
@@ -717,22 +776,22 @@ async function loadContent() {
           )}
           {/* Logo */}
           {(logoVisible || isAdmin) && (
-            <div className="mb-8 flex flex-col items-center">
+            <div ref={logoOuterRef} className="mb-8 flex flex-col items-center">
               <div
                 onPointerDown={onLogoPointerDown}
                 onPointerMove={onLogoPointerMove}
                 onPointerUp={onLogoPointerUp}
                 className={`flex justify-center select-none ${isAdmin && !isMobile ? 'cursor-move' : ''} ${!logoVisible ? 'opacity-40' : ''}`}
                 style={{
-                  transform: isMobile ? 'none' : `translate(${logoDrag ? logoDrag.x : logoOffsetX}px, ${logoDrag ? logoDrag.y : logoOffsetY}px)`,
-                  transition: logoDrag ? 'none' : 'transform 0.2s ease-out',
+                  transform: isMobile ? 'none' : `translate(${(logoDrag ?? logoFit ?? { x: logoOffsetX, y: logoOffsetY }).x}px, ${(logoDrag ?? logoFit ?? { x: logoOffsetX, y: logoOffsetY }).y}px)`,
+                  transition: logoDrag || !titleFitReady ? 'none' : 'transform 0.2s ease-out',
                 }}>
-                <div className="bg-white rounded-3xl px-8 py-6 border-4 border-white/80 inline-block relative"
+                <div ref={logoCardRef} className="bg-white rounded-3xl px-3 py-3 md:px-8 md:py-6 border-4 border-white/80 inline-block relative"
                   style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.15), 6px 6px 0px 0px rgba(26,16,64,0.15)' }}>
                   <img
                     src={logoUrl}
                     alt="Les bons plants de Jen"
-                    className="h-44 md:h-56 w-auto pointer-events-none"
+                    className="w-[min(72vw,320px,40vh)] h-auto md:w-auto md:h-56 pointer-events-none"
                     draggable={false}
                     onError={e => {
                       const t = e.currentTarget
@@ -778,7 +837,7 @@ async function loadContent() {
           {/* Image du titre — posée sur le fond ; position et taille réglables à la souris, séparément pour mobile et ordinateur */}
           {(heroTitleImg.visible || isAdmin) && (() => {
             const tl = heroTitleImg.layout[isMobile ? 'mobile' : 'desktop']
-            const pos = titleDrag ?? { x: tl.x, y: tl.y }
+            const pos = titleDrag ?? titleFit ?? { x: tl.x, y: tl.y }
             const imgEl = (
               <img
                 key={heroTitleImg.url}
@@ -799,19 +858,20 @@ async function loadContent() {
                 <div className={`flex justify-center ${heroAlign === 'left' ? 'md:justify-start' : ''}`}>
                   <div
                     ref={titleBoxRef}
-                    onPointerDown={onTitlePointerDown}
-                    onPointerMove={onTitlePointerMove}
-                    onPointerUp={endTitleDrag}
-                    onPointerCancel={endTitleDrag}
-                    className={`${isAdmin ? 'cursor-move outline-dashed outline-2 outline-white/70' : ''} ${!heroTitleImg.visible ? 'opacity-40' : ''}`}
-                    style={{
-                      width: isMobile ? `${tl.w}%` : `min(${tl.w * 7.2}px, 92vw)`,
-                      flexShrink: 0,
-                      transform: `translate(${pos.x}%, ${pos.y}%)`,
-                      transition: titleDrag ? 'none' : 'transform 0.2s ease-out',
-                      touchAction: isAdmin ? 'none' : undefined,
-                    }}>
-                    {heroTitreVisible ? <div>{imgEl}</div> : <h1>{imgEl}</h1>}
+                    style={{ width: isMobile ? `${tl.w}%` : `min(${tl.w * 7.2}px, 92vw)`, flexShrink: 0 }}>
+                    <div
+                      onPointerDown={onTitlePointerDown}
+                      onPointerMove={onTitlePointerMove}
+                      onPointerUp={endTitleDrag}
+                      onPointerCancel={endTitleDrag}
+                      className={`${isAdmin ? 'cursor-move outline-dashed outline-2 outline-white/70' : ''} ${!heroTitleImg.visible ? 'opacity-40' : ''}`}
+                      style={{
+                        transform: `translate(${pos.x}%, ${pos.y}%)`,
+                        transition: titleDrag || !titleFitReady ? 'none' : 'transform 0.2s ease-out',
+                        touchAction: isAdmin ? 'none' : undefined,
+                      }}>
+                      {heroTitreVisible ? <div>{imgEl}</div> : <h1>{imgEl}</h1>}
+                    </div>
                   </div>
                 </div>
                 {isAdmin && (
