@@ -273,9 +273,6 @@ export default function Accueil() {
   // Position réellement affichée : la position enregistrée, ramenée dans le hero si l'écran est plus petit
   const [titleFit, setTitleFit] = useState<{ x: number; y: number } | null>(null)
   const [titleFitReady, setTitleFitReady] = useState(false)
-  const [logoFit, setLogoFit] = useState<{ x: number; y: number } | null>(null)
-  const logoOuterRef = useRef<HTMLDivElement>(null)
-  const logoCardRef = useRef<HTMLDivElement>(null)
   const [titleImgLoadedUrl, setTitleImgLoadedUrl] = useState('')
   const [titleImgUploading, setTitleImgUploading] = useState(false)
   const titleImgInputRef = useRef<HTMLInputElement>(null)
@@ -468,9 +465,8 @@ export default function Accueil() {
     e.preventDefault()
     e.stopPropagation()
     ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-    const cur = logoFit ?? { x: logoOffsetX, y: logoOffsetY }
-    logoDragStart.current = { px: e.clientX, py: e.clientY, ox: cur.x, oy: cur.y }
-    setLogoDrag({ x: cur.x, y: cur.y })
+    logoDragStart.current = { px: e.clientX, py: e.clientY, ox: logoOffsetX, oy: logoOffsetY }
+    setLogoDrag({ x: logoOffsetX, y: logoOffsetY })
   }
   function onLogoPointerMove(e: React.PointerEvent) {
     if (!logoDragStart.current) return
@@ -626,31 +622,6 @@ async function loadContent() {
     return () => { cancelAnimationFrame(raf); ro.disconnect() }
   }, [heroTitleImg.layout, heroTitleImg.visible, isMobile, heroAlign])
 
-  // Même garde-fou pour le carré du logo : un décalage réglé sur grand écran ne doit pas le faire déborder sur tablette.
-  useLayoutEffect(() => {
-    const sec = heroSectionRef.current
-    const outer = logoOuterRef.current
-    const card = logoCardRef.current
-    if (!sec || !outer || !card || isMobile) { setLogoFit(null); return }
-    const clamp = (v: number, min: number, max: number) => (max < min ? (min + max) / 2 : Math.min(Math.max(v, min), max))
-    const fit = () => {
-      const sr = sec.getBoundingClientRect()
-      const o = outer.getBoundingClientRect() // ancre non décalée
-      const cw = card.offsetWidth, ch = card.offsetHeight
-      if (!cw || !ch) return
-      const baseL = o.left + (o.width - cw) / 2
-      const baseT = o.top
-      const nx = Math.round(clamp(logoOffsetX, sr.left - baseL, sr.right - cw - baseL))
-      const ny = Math.round(clamp(logoOffsetY, sr.top - baseT, sr.bottom - ch - baseT))
-      setLogoFit(prev => (prev && prev.x === nx && prev.y === ny ? prev : { x: nx, y: ny }))
-    }
-    fit()
-    const ro = new ResizeObserver(fit)
-    ro.observe(sec)
-    ro.observe(card)
-    return () => ro.disconnect()
-  }, [logoOffsetX, logoOffsetY, isMobile, logoVisible, isAdmin])
-
   async function uploadTitleImg(file: File) {
     setTitleImgUploading(true)
     const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
@@ -776,22 +747,22 @@ async function loadContent() {
           )}
           {/* Logo */}
           {(logoVisible || isAdmin) && (
-            <div ref={logoOuterRef} className="mb-8 flex flex-col items-center">
+            <div className="mb-8 flex flex-col items-center">
               <div
                 onPointerDown={onLogoPointerDown}
                 onPointerMove={onLogoPointerMove}
                 onPointerUp={onLogoPointerUp}
                 className={`flex justify-center select-none ${isAdmin && !isMobile ? 'cursor-move' : ''} ${!logoVisible ? 'opacity-40' : ''}`}
                 style={{
-                  transform: isMobile ? 'none' : `translate(${(logoDrag ?? logoFit ?? { x: logoOffsetX, y: logoOffsetY }).x}px, ${(logoDrag ?? logoFit ?? { x: logoOffsetX, y: logoOffsetY }).y}px)`,
-                  transition: logoDrag || !titleFitReady ? 'none' : 'transform 0.2s ease-out',
+                  transform: isMobile ? 'none' : `translate(${logoDrag ? logoDrag.x : logoOffsetX}px, ${logoDrag ? logoDrag.y : logoOffsetY}px)`,
+                  transition: logoDrag ? 'none' : 'transform 0.2s ease-out',
                 }}>
-                <div ref={logoCardRef} className="bg-white rounded-3xl px-3 py-3 md:px-8 md:py-6 border-4 border-white/80 inline-block relative"
+                <div className="bg-white rounded-3xl px-8 py-6 border-4 border-white/80 inline-block relative"
                   style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.15), 6px 6px 0px 0px rgba(26,16,64,0.15)' }}>
                   <img
                     src={logoUrl}
                     alt="Les bons plants de Jen"
-                    className="w-[min(72vw,320px,40vh)] h-auto md:w-auto md:h-56 pointer-events-none"
+                    className="h-44 md:h-56 w-auto pointer-events-none"
                     draggable={false}
                     onError={e => {
                       const t = e.currentTarget

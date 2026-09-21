@@ -5,7 +5,7 @@ interface SiteSettings {
   logoUrl: string
 }
 
-const DEFAULT: SiteSettings = { logoUrl: '/images/logo-jen.webp' }
+const DEFAULT: SiteSettings = { logoUrl: '/images/logo.jpg' }
 const LOGO_CACHE_KEY = 'site_logo_cache'
 
 // Dernier logo connu : évite d'afficher le logo par défaut le temps de la réponse Supabase
