@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useIsMobile } from '../lib/useIsMobile'
 
 export interface AproposPhoto {
   id:            string
@@ -38,9 +39,15 @@ export default function AproposPhotoDisplay({ photo, isAdmin, onMoved }: {
 
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null)
   const start = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null)
-  const canDrag = !!isAdmin
-  const offsetX = drag ? drag.x : (photo.offset_x || 0)
-  const offsetY = drag ? drag.y : (photo.offset_y || 0)
+  // Mobile (< 768px) : la photo garde ses proportions et tient dans la largeur de l'écran.
+  // Le décalage réglé sur grand écran est ignoré pour qu'elle reste centrée et entièrement visible.
+  const isMobile = useIsMobile()
+  const canDrag = !!isAdmin && !isMobile
+  const offsetX = isMobile ? 0 : (drag ? drag.x : (photo.offset_x || 0))
+  const offsetY = isMobile ? 0 : (drag ? drag.y : (photo.offset_y || 0))
+  // Une forme non ronde et inclinée déborde de sa boîte : on la réduit pour que ses coins restent visibles
+  const rad = Math.abs(photo.rotation || 0) * Math.PI / 180
+  const rotationFit = photo.shape === 'rounded-full' ? 1 : 1 / (Math.cos(rad) + Math.sin(rad))
 
   function onPointerDown(e: React.PointerEvent) {
     if (!canDrag) return
@@ -66,7 +73,7 @@ export default function AproposPhotoDisplay({ photo, isAdmin, onMoved }: {
   }
 
   return (
-    <div className="flex justify-center">
+    <div className={`flex justify-center ${isMobile ? 'w-full' : ''}`}>
       <div
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -75,13 +82,14 @@ export default function AproposPhotoDisplay({ photo, isAdmin, onMoved }: {
         style={{
           transform:  `translate(${offsetX}px, ${offsetY}px)`,
           transition: drag ? 'none' : 'transform 0.2s ease-out',
+          ...(isMobile ? { width: `${rotationFit * 100}%`, maxWidth: `${photo.size}px` } : {}),
         }}>
         <div
           className="relative overflow-hidden transition-all duration-300"
           style={{
-            width:           `${photo.size}px`,
-            height:          `${photo.size}px`,
-            maxWidth:        '100%',
+            ...(isMobile
+              ? { width: '100%', aspectRatio: '1 / 1' }
+              : { width: `${photo.size}px`, height: `${photo.size}px`, maxWidth: '100%' }),
             borderRadius,
             border:          photo.show_cadre ? `${photo.cadre_width}px solid ${photo.cadre_color}` : 'none',
             backgroundColor: photo.show_fond ? photo.fond_color : 'transparent',
