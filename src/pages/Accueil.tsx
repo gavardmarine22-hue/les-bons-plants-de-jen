@@ -730,8 +730,8 @@ async function loadContent() {
         )}
 
         {/* Contenu centré verticalement */}
-        <div className="relative z-10 flex-1 flex items-center justify-center py-20">
-        <div className={`mx-auto w-full ${heroAlign === 'left' ? 'max-w-5xl text-center md:text-left' : 'max-w-3xl text-center'}`}>
+        <div className="relative z-10 flex-1 flex items-start md:items-center justify-center pt-8 pb-20 md:py-20">
+        <div className={`flex flex-col md:block mx-auto w-full ${heroAlign === 'left' ? 'max-w-5xl text-center md:text-left' : 'max-w-3xl text-center'}`}>
           {/* Alignement du bloc texte (admin) */}
           {isAdmin && (
             <div className={`flex items-center gap-2 mb-6 ${heroAlign === 'left' ? 'justify-center md:justify-start' : 'justify-center'}`}>
@@ -762,7 +762,7 @@ async function loadContent() {
                   <img
                     src={logoUrl}
                     alt="Les bons plants de Jen"
-                    className="h-44 md:h-56 w-auto pointer-events-none"
+                    className="h-52 md:h-56 w-auto pointer-events-none"
                     draggable={false}
                     onError={e => {
                       const t = e.currentTarget
@@ -825,7 +825,7 @@ async function loadContent() {
               />
             )
             return (
-              <div className="mb-6">
+              <div className="mb-6 order-first md:order-none">
                 <div className={`flex justify-center ${heroAlign === 'left' ? 'md:justify-start' : ''}`}>
                   <div
                     ref={titleBoxRef}
